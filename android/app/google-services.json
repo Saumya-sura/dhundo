@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "340234619582",
+    "project_id": "dhundo-flutter",
+    "storage_bucket": "dhundo-flutter.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:340234619582:android:dd35ebe30f893889652cef",
+        "android_client_info": {
+          "package_name": "com.example.dhundo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDw-XMm6VyTbrdoeVgd5nxTRC2IkXhdFus"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
