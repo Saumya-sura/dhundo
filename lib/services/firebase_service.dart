@@ -12,6 +12,19 @@ class FirebaseService extends ChangeNotifier {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
+  FirebaseService() {
+    _enableOfflinePersistence();
+  }
+
+  void _enableOfflinePersistence() {
+    try {
+      _db.settings = const Settings(
+        persistenceEnabled: true,
+        cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+      );
+    } catch (_) {}
+  }
+
   User? get currentUser => _auth.currentUser;
   String? get currentUserId => _auth.currentUser?.uid;
   String? get currentUserEmail => _auth.currentUser?.email;
@@ -287,7 +300,14 @@ class FirebaseService extends ChangeNotifier {
     });
   }
 
-  Future<void> sendMessage(String chatRoomId, String text, String senderName) async {
+  Future<void> sendMessage(
+    String chatRoomId,
+    String text,
+    String senderName, {
+    double? latitude,
+    double? longitude,
+    String? locationName,
+  }) async {
     final uid = currentUserId;
     if (uid == null) return;
 
@@ -305,6 +325,9 @@ class FirebaseService extends ChangeNotifier {
       senderName: senderName,
       text: text,
       timestamp: DateTime.now(),
+      latitude: latitude,
+      longitude: longitude,
+      locationName: locationName,
     );
 
     batch.set(messageRef, message.toMap());
@@ -312,10 +335,129 @@ class FirebaseService extends ChangeNotifier {
     // Update chat room details
     final roomRef = _db.collection('chats').doc(chatRoomId);
     batch.update(roomRef, {
-      'lastMessage': text,
+      'lastMessage': latitude != null ? '📍 Location: ${locationName ?? "Shared Place"}' : text,
       'lastMessageTime': Timestamp.fromDate(DateTime.now()),
     });
 
     await batch.commit();
+  }
+
+  // -----------------------------------------
+  // USER PROFILES, RATINGS & TRUST SYSTEM
+  // -----------------------------------------
+
+  Future<Map<String, dynamic>?> getUserProfile(String userId) async {
+    try {
+      final doc = await _db.collection('users').doc(userId).get();
+      return doc.data();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> rateUser(String ratedUserId, double rating, List<String> tags) async {
+    try {
+      final docRef = _db.collection('users').doc(ratedUserId);
+      final doc = await docRef.get();
+      
+      int ratingCount = 0;
+      double ratingSum = 0.0;
+      int karmaPoints = 0;
+      List<String> badges = [];
+
+      if (doc.exists) {
+        final data = doc.data()!;
+        ratingCount = data['ratingCount'] ?? 0;
+        ratingSum = (data['ratingSum'] as num?)?.toDouble() ?? 0.0;
+        karmaPoints = data['karmaPoints'] ?? 0;
+        badges = List<String>.from(data['badges'] ?? []);
+      }
+
+      ratingCount += 1;
+      ratingSum += rating;
+      karmaPoints += 15; // Earn karma for resolving returns
+
+      // Badge Rules
+      if (karmaPoints >= 30 && !badges.contains('Super Finder')) {
+        badges.add('Super Finder');
+      }
+      final double averageRating = ratingSum / ratingCount;
+      if (averageRating >= 4.5 && ratingCount >= 3 && !badges.contains('Trusted Samaritan')) {
+        badges.add('Trusted Samaritan');
+      }
+      if (!badges.contains('Good Citizen')) {
+        badges.add('Good Citizen');
+      }
+
+      await docRef.set({
+        'ratingCount': ratingCount,
+        'ratingSum': ratingSum,
+        'karmaPoints': karmaPoints,
+        'badges': badges,
+      }, SetOptions(merge: true));
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error rating user: $e');
+      }
+      rethrow;
+    }
+  }
+
+  // -----------------------------------------
+  // LIVE LOCATION SHARING
+  // -----------------------------------------
+
+  Future<void> updateLiveLocation(String chatRoomId, double latitude, double longitude) async {
+    final uid = currentUserId;
+    if (uid == null) return;
+    await _db.collection('chats').doc(chatRoomId).update({
+      'liveLocations.$uid': {
+        'latitude': latitude,
+        'longitude': longitude,
+        'updatedAt': Timestamp.now(),
+      }
+    });
+  }
+
+  Future<void> stopSharingLocation(String chatRoomId) async {
+    final uid = currentUserId;
+    if (uid == null) return;
+    await _db.collection('chats').doc(chatRoomId).update({
+      'liveLocations.$uid': FieldValue.delete(),
+    });
+  }
+
+  // -----------------------------------------
+  // SIMULATED VOIP CALLING
+  // -----------------------------------------
+
+  Future<void> initiateCall(String chatRoomId, String callerName) async {
+    final uid = currentUserId;
+    if (uid == null) return;
+    await _db.collection('chats').doc(chatRoomId).update({
+      'callStatus': 'ringing',
+      'callerId': uid,
+      'callerName': callerName,
+    });
+  }
+
+  Future<void> acceptCall(String chatRoomId) async {
+    await _db.collection('chats').doc(chatRoomId).update({
+      'callStatus': 'connected',
+    });
+  }
+
+  Future<void> endCall(String chatRoomId) async {
+    await _db.collection('chats').doc(chatRoomId).update({
+      'callStatus': 'ended',
+    });
+  }
+
+  Future<void> resetCallStatus(String chatRoomId) async {
+    await _db.collection('chats').doc(chatRoomId).update({
+      'callStatus': FieldValue.delete(),
+      'callerId': FieldValue.delete(),
+      'callerName': FieldValue.delete(),
+    });
   }
 }

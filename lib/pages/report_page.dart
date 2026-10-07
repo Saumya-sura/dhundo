@@ -10,6 +10,7 @@ import '../theme/app_theme.dart';
 import '../widgets/custom_textfield.dart';
 import '../widgets/custom_button.dart';
 import 'potential_matches_page.dart';
+import '../widgets/cached_tile_provider.dart';
 
 class ReportPage extends StatefulWidget {
   final bool isActive;
@@ -24,13 +25,14 @@ class _ReportPageState extends State<ReportPage> {
   final _titleController = TextEditingController();
   final _descController = TextEditingController();
   final _locDescController = TextEditingController();
-  final _imageUrlController = TextEditingController();
+  final _verificationQuestionController = TextEditingController();
 
   bool _isLost = true;
   String _category = 'Electronics';
   LatLng _selectedCoords = const LatLng(28.6139, 77.2090); // Default Delhi
   bool _loadingLocation = true;
   bool _submitting = false;
+  bool _isAmberAlert = false;
 
   final MapController _miniMapController = MapController();
 
@@ -44,22 +46,10 @@ class _ReportPageState extends State<ReportPage> {
     'Others'
   ];
 
-  // Preset Unsplash images to make listings beautiful
-  final Map<String, String> _presets = {
-    'Electronics': 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=600&auto=format&fit=crop&q=80',
-    'Keys': 'https://images.unsplash.com/photo-1582139329536-e7284fece509?w=600&auto=format&fit=crop&q=80',
-    'Wallets': 'https://images.unsplash.com/photo-1627124718133-c8d2da0fa6e6?w=600&auto=format&fit=crop&q=80',
-    'Documents': 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=600&auto=format&fit=crop&q=80',
-    'Pets': 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=600&auto=format&fit=crop&q=80',
-    'Clothing': 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80',
-    'Others': 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=600&auto=format&fit=crop&q=80',
-  };
-
   @override
   void initState() {
     super.initState();
     _fetchCurrentLocation();
-    _imageUrlController.text = _presets[_category]!;
   }
 
   @override
@@ -75,7 +65,7 @@ class _ReportPageState extends State<ReportPage> {
     _titleController.dispose();
     _descController.dispose();
     _locDescController.dispose();
-    _imageUrlController.dispose();
+    _verificationQuestionController.dispose();
     super.dispose();
   }
 
@@ -137,7 +127,7 @@ class _ReportPageState extends State<ReportPage> {
       id: itemId,
       title: _titleController.text.trim(),
       description: _descController.text.trim(),
-      imageUrl: _imageUrlController.text.trim().isNotEmpty ? _imageUrlController.text.trim() : null,
+      imageUrl: null,
       latitude: _selectedCoords.latitude,
       longitude: _selectedCoords.longitude,
       locationDescription: _locDescController.text.trim(),
@@ -146,6 +136,10 @@ class _ReportPageState extends State<ReportPage> {
       dateTime: DateTime.now(),
       reporterId: firebaseService.currentUserId!,
       reporterName: firebaseService.currentUser?.displayName ?? 'Anonymous',
+      verificationQuestion: _verificationQuestionController.text.trim().isNotEmpty 
+          ? _verificationQuestionController.text.trim() 
+          : null,
+      isAmberAlert: _category == 'Pets' && _isLost ? _isAmberAlert : false,
     );
 
     try {
@@ -252,10 +246,11 @@ class _ReportPageState extends State<ReportPage> {
     _titleController.clear();
     _descController.clear();
     _locDescController.clear();
+    _verificationQuestionController.clear();
     setState(() {
       _isLost = true;
       _category = 'Electronics';
-      _imageUrlController.text = _presets[_category]!;
+      _isAmberAlert = false;
     });
   }
 
@@ -307,7 +302,10 @@ class _ReportPageState extends State<ReportPage> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: GestureDetector(
-                      onTap: () => setState(() => _isLost = false),
+                      onTap: () => setState(() {
+                        _isLost = false;
+                        _isAmberAlert = false;
+                      }),
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         decoration: BoxDecoration(
@@ -366,7 +364,6 @@ class _ReportPageState extends State<ReportPage> {
                       if (val != null) {
                         setState(() {
                           _category = val;
-                          _imageUrlController.text = _presets[val]!;
                         });
                       }
                     },
@@ -395,13 +392,64 @@ class _ReportPageState extends State<ReportPage> {
               ),
               const SizedBox(height: 16),
 
-              // Image URL text field (preloaded with presets, but allows customizing)
+
+
               CustomTextField(
-                controller: _imageUrlController,
-                label: 'Image URL (Optional)',
-                hint: 'Enter photo URL to override category preset',
+                controller: _verificationQuestionController,
+                label: 'Ownership Verification Question (Optional)',
+                hint: 'e.g. What color sticker is on the back?',
               ),
               const SizedBox(height: 16),
+
+              if (_category == 'Pets' && _isLost) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.lostColor.withOpacity(0.08),
+                    border: Border.all(color: AppTheme.lostColor.withOpacity(0.3), width: 1.2),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.notification_important_rounded, color: AppTheme.lostColor, size: 28),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const [
+                            Text(
+                              'Trigger Local Amber Alert',
+                              style: TextStyle(
+                                color: AppTheme.textPrimary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13.5,
+                              ),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              'Alert nearby users within a 5 km radius',
+                              style: TextStyle(
+                                color: AppTheme.textSecondary,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Switch(
+                        value: _isAmberAlert,
+                        activeColor: AppTheme.lostColor,
+                        onChanged: (val) {
+                          setState(() {
+                            _isAmberAlert = val;
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
 
               // Mini Map Picker
               const Text(
@@ -433,6 +481,7 @@ class _ReportPageState extends State<ReportPage> {
                         TileLayer(
                           urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                           userAgentPackageName: 'com.example.dhundo',
+                          tileProvider: CachedTileProvider(),
                         ),
                         MarkerLayer(
                           markers: [

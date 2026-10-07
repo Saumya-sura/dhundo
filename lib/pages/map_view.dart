@@ -8,6 +8,7 @@ import '../services/firebase_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/glass_card.dart';
 import 'chat_page.dart';
+import '../widgets/cached_tile_provider.dart';
 
 class MapView extends StatefulWidget {
   const MapView({super.key});
@@ -92,6 +93,109 @@ class _MapViewState extends State<MapView> {
       return;
     }
 
+    // Ownership Verification Check
+    if (item.verificationQuestion != null && item.verificationQuestion!.trim().isNotEmpty) {
+      final answerController = TextEditingController();
+      final hasAnswered = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => AlertDialog(
+          backgroundColor: AppTheme.cardBg,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: const BorderSide(color: AppTheme.border, width: 1.5),
+          ),
+          title: Row(
+            children: const [
+              Icon(Icons.key_rounded, color: AppTheme.secondary),
+              SizedBox(width: 8),
+              Text('Verification Required', style: TextStyle(fontSize: 18)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'The reporter requires ownership verification before you can chat.',
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Question: ${item.verificationQuestion}',
+                style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: answerController,
+                style: const TextStyle(color: AppTheme.textPrimary),
+                decoration: const InputDecoration(
+                  hintText: 'Type your answer here...',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (answerController.text.trim().isNotEmpty) {
+                  Navigator.pop(dialogContext, true);
+                } else {
+                  ScaffoldMessenger.of(dialogContext).showSnackBar(
+                    const SnackBar(content: Text('Please enter an answer.')),
+                  );
+                }
+              },
+              child: const Text('Submit'),
+            ),
+          ],
+        ),
+      );
+
+      if (hasAnswered != true) return;
+
+      try {
+        final currentUserName = firebaseService.currentUser?.displayName ?? 'Anonymous';
+        final chatRoom = await firebaseService.getOrCreateChatRoom(
+          itemId: item.id,
+          itemTitle: item.title,
+          itemIsLost: item.isLost,
+          ownerId: item.isLost ? item.reporterId : firebaseService.currentUserId!,
+          ownerName: item.isLost ? item.reporterName : currentUserName,
+          finderId: item.isLost ? firebaseService.currentUserId! : item.reporterId,
+          finderName: item.isLost ? currentUserName : item.reporterName,
+        );
+
+        // Send the verification answer message automatically
+        final answerText = answerController.text.trim();
+        final verificationMsg = '🔑 Verification Attempt:\nQuestion: ${item.verificationQuestion}\nClaimant\'s Answer: $answerText';
+        await firebaseService.sendMessage(chatRoom.id, verificationMsg, currentUserName);
+
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ChatPage(chatRoom: chatRoom),
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error initiating chat: $e'),
+              backgroundColor: AppTheme.lostColor,
+            ),
+          );
+        }
+      }
+      return;
+    }
+
     try {
       final currentUserName = firebaseService.currentUser?.displayName ?? 'Anonymous';
       final chatRoom = await firebaseService.getOrCreateChatRoom(
@@ -145,8 +249,8 @@ class _MapViewState extends State<MapView> {
             final color = item.isLost ? AppTheme.lostColor : AppTheme.foundColor;
             return Marker(
               point: LatLng(item.latitude, item.longitude),
-              width: 50,
-              height: 50,
+              width: item.isAmberAlert ? 60 : 50,
+              height: item.isAmberAlert ? 60 : 50,
               child: GestureDetector(
                 onTap: () {
                   setState(() {
@@ -154,17 +258,19 @@ class _MapViewState extends State<MapView> {
                   });
                   _mapController.move(LatLng(item.latitude, item.longitude), 15.0);
                 },
-                child: Icon(
-                  item.isLost ? Icons.location_on_rounded : Icons.radar_rounded,
-                  color: color,
-                  size: 38,
-                  shadows: [
-                    Shadow(
-                      color: color.withOpacity(0.6),
-                      blurRadius: 8,
-                    )
-                  ],
-                ),
+                child: item.isAmberAlert
+                    ? PulsingAmberMarker(color: color)
+                    : Icon(
+                        item.isLost ? Icons.location_on_rounded : Icons.radar_rounded,
+                        color: color,
+                        size: 38,
+                        shadows: [
+                          Shadow(
+                            color: color.withOpacity(0.6),
+                            blurRadius: 8,
+                          )
+                        ],
+                      ),
               ),
             );
           }).toList();
@@ -187,6 +293,7 @@ class _MapViewState extends State<MapView> {
                   TileLayer(
                     urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                     userAgentPackageName: 'com.example.dhundo',
+                    tileProvider: CachedTileProvider(),
                   ),
                   MarkerLayer(markers: markers),
                 ],
@@ -410,6 +517,62 @@ class _MapViewState extends State<MapView> {
         ),
         onPressed: _determinePosition,
         child: const Icon(Icons.my_location_rounded, size: 18),
+      ),
+    );
+  }
+}
+
+class PulsingAmberMarker extends StatefulWidget {
+  final Color color;
+  const PulsingAmberMarker({super.key, required this.color});
+
+  @override
+  State<PulsingAmberMarker> createState() => _PulsingAmberMarkerState();
+}
+
+class _PulsingAmberMarkerState extends State<PulsingAmberMarker> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    )..repeat(reverse: true);
+    _animation = Tween<double>(begin: 0.85, end: 1.25).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ScaleTransition(
+      scale: _animation,
+      child: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: widget.color.withOpacity(0.2),
+          boxShadow: [
+            BoxShadow(
+              color: widget.color.withOpacity(0.6),
+              blurRadius: 10,
+              spreadRadius: 3,
+            )
+          ],
+        ),
+        child: Icon(
+          Icons.warning_amber_rounded,
+          color: widget.color,
+          size: 26,
+        ),
       ),
     );
   }

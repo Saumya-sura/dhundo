@@ -14,6 +14,8 @@ class ItemModel {
   final String reporterId;
   final String reporterName;
   final String status; // 'active' or 'resolved'
+  final String? verificationQuestion;
+  final bool isAmberAlert;
 
   ItemModel({
     required this.id,
@@ -29,6 +31,8 @@ class ItemModel {
     required this.reporterId,
     required this.reporterName,
     this.status = 'active',
+    this.verificationQuestion,
+    this.isAmberAlert = false,
   });
 
   Map<String, dynamic> toMap() {
@@ -46,6 +50,8 @@ class ItemModel {
       'reporterId': reporterId,
       'reporterName': reporterName,
       'status': status,
+      'verificationQuestion': verificationQuestion,
+      'isAmberAlert': isAmberAlert,
     };
   }
 
@@ -73,6 +79,8 @@ class ItemModel {
       reporterId: map['reporterId'] ?? '',
       reporterName: map['reporterName'] ?? 'Anonymous',
       status: map['status'] ?? 'active',
+      verificationQuestion: map['verificationQuestion'],
+      isAmberAlert: map['isAmberAlert'] ?? false,
     );
   }
 
@@ -90,6 +98,8 @@ class ItemModel {
     String? reporterId,
     String? reporterName,
     String? status,
+    String? verificationQuestion,
+    bool? isAmberAlert,
   }) {
     return ItemModel(
       id: id ?? this.id,
@@ -105,6 +115,8 @@ class ItemModel {
       reporterId: reporterId ?? this.reporterId,
       reporterName: reporterName ?? this.reporterName,
       status: status ?? this.status,
+      verificationQuestion: verificationQuestion ?? this.verificationQuestion,
+      isAmberAlert: isAmberAlert ?? this.isAmberAlert,
     );
   }
 }

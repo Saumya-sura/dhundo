@@ -12,6 +12,10 @@ class ChatRoomModel {
   final String lastMessage;
   final DateTime lastMessageTime;
   final List<String> userIds;
+  final String? callStatus; // 'ringing', 'connected', 'ended', or null
+  final String? callerId;
+  final String? callerName;
+  final Map<String, dynamic>? liveLocations; // { uid: { 'latitude': double, 'longitude': double, 'updatedAt': Timestamp } }
 
   ChatRoomModel({
     required this.id,
@@ -25,6 +29,10 @@ class ChatRoomModel {
     required this.lastMessage,
     required this.lastMessageTime,
     required this.userIds,
+    this.callStatus,
+    this.callerId,
+    this.callerName,
+    this.liveLocations,
   });
 
   Map<String, dynamic> toMap() {
@@ -40,6 +48,10 @@ class ChatRoomModel {
       'lastMessage': lastMessage,
       'lastMessageTime': Timestamp.fromDate(lastMessageTime),
       'userIds': userIds,
+      'callStatus': callStatus,
+      'callerId': callerId,
+      'callerName': callerName,
+      'liveLocations': liveLocations,
     };
   }
 
@@ -65,6 +77,10 @@ class ChatRoomModel {
       lastMessage: map['lastMessage'] ?? '',
       lastMessageTime: parsedTime,
       userIds: List<String>.from(map['userIds'] ?? []),
+      callStatus: map['callStatus'],
+      callerId: map['callerId'],
+      callerName: map['callerName'],
+      liveLocations: map['liveLocations'] != null ? Map<String, dynamic>.from(map['liveLocations']) : null,
     );
   }
 }
@@ -75,6 +91,9 @@ class MessageModel {
   final String senderName;
   final String text;
   final DateTime timestamp;
+  final double? latitude;
+  final double? longitude;
+  final String? locationName;
 
   MessageModel({
     required this.id,
@@ -82,6 +101,9 @@ class MessageModel {
     required this.senderName,
     required this.text,
     required this.timestamp,
+    this.latitude,
+    this.longitude,
+    this.locationName,
   });
 
   Map<String, dynamic> toMap() {
@@ -90,6 +112,9 @@ class MessageModel {
       'senderName': senderName,
       'text': text,
       'timestamp': Timestamp.fromDate(timestamp),
+      'latitude': latitude,
+      'longitude': longitude,
+      'locationName': locationName,
     };
   }
 
@@ -109,6 +134,9 @@ class MessageModel {
       senderName: map['senderName'] ?? '',
       text: map['text'] ?? '',
       timestamp: parsedTime,
+      latitude: map['latitude'] != null ? (map['latitude'] as num).toDouble() : null,
+      longitude: map['longitude'] != null ? (map['longitude'] as num).toDouble() : null,
+      locationName: map['locationName'],
     );
   }
 }
