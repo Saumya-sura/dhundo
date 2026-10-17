@@ -1,15 +1,16 @@
 # Dhundo 🔍
 ### Lost & Found Map Assistant
 
-Dhundo is a modern, state-of-the-art Flutter application built to help communities connect and return lost items. Featuring a premium **Obsidian Dark Theme**, real-time map exploration via OpenStreetMap, automated proximity matching, and direct in-app messaging, Dhundo makes locating lost belongings seamless and collaborative.
+Dhundo is a modern, state-of-the-art Flutter application built to help communities connect and return lost items. Featuring a premium **Obsidian Dark Theme**, real-time map exploration via Google Maps, automated proximity matching, interactive Google Street View 360° panoramas, and direct in-app messaging, Dhundo makes locating lost belongings seamless and collaborative.
 
 ---
 
 ## 🚀 Key Features
 
-*   **🗺️ Interactive OpenStreetMap Discovery**: View active pins across your city (🔴 Red for Lost items, 🟢 Green for Found items). Filter items dynamically by categories with a sleek horizontal scroll.
+*   **🗺️ Interactive Google Maps Discovery**: Native Google Maps rendering with custom Obsidian Dark styling, category filters, and pin visualizers (🔴 Red for Lost items, 🟢 Green for Found items, 🟠 Amber alerts).
+*   **📷 Google Street View 360° Explorer**: Preview actual street-level panoramas for any pinned item or meetup spot with 360° rotation, pitch controls, and zoom.
 *   **🤖 Automated Proximity Matching**: Upon submitting a report, Dhundo's matching engine automatically analyzes existing reports in the same category within a **10 km radius** to look for overlaps.
-*   **💬 Real-Time Messaging**: Avoid sharing personal phone numbers. Initiate private, secure chat rooms directly from a potential match pin to coordinate safe handovers.
+*   **💬 Real-Time Messaging & Live Location**: Coordinate safe handovers with live location sharing, static map previews, and simulated VoIP calling.
 *   **⚡ Case Resolution System**: Mark items as resolved/returned inside the chat window, which automatically archives the item and removes its pin from the map.
 *   **✨ Premium Glassmorphism & UI**: Built using custom translucent widgets (`GlassCard`), indigo-to-cyan gradients, custom input validations, and smooth micro-animations.
 
@@ -21,7 +22,7 @@ Dhundo is a modern, state-of-the-art Flutter application built to help communiti
 - **State Management**: [Provider](https://pub.dev/packages/provider)
 - **Database & Auth**: [Firebase Auth & Cloud Firestore](https://firebase.google.com/)
 - **Storage**: [Firebase Storage](https://firebase.google.com/) (for uploading item images)
-- **Mapping**: [Flutter Map](https://pub.dev/packages/flutter_map) & [Geolocator](https://pub.dev/packages/geolocator) (OpenStreetMap integration)
+- **Mapping & Geocoding**: [Google Maps Flutter](https://pub.dev/packages/google_maps_flutter), Google Street View API, Google Geocoding API & [Geolocator](https://pub.dev/packages/geolocator)
 - **Design Elements**: [Google Fonts (Outfit/Inter)](https://fonts.google.com/), Custom Glassmorphic Cards, custom route transitions.
 
 ---

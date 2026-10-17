@@ -1,13 +1,11 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
+import '../services/google_maps_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/glass_card.dart';
-import '../widgets/cached_tile_provider.dart';
+import '../widgets/street_view_dialog.dart';
 
 class LocationPickerPage extends StatefulWidget {
   const LocationPickerPage({super.key});
@@ -17,18 +15,16 @@ class LocationPickerPage extends StatefulWidget {
 }
 
 class _LocationPickerPageState extends State<LocationPickerPage> {
-  final MapController _mapController = MapController();
+  GoogleMapController? _mapController;
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _labelController = TextEditingController();
-  
+
   LatLng _selectedCoords = const LatLng(28.6139, 77.2090); // Default to New Delhi
   bool _loadingLocation = true;
   bool _reverseGeocoding = false;
   bool _searching = false;
-  List<dynamic> _searchResults = [];
+  List<Map<String, dynamic>> _searchResults = [];
   Timer? _debounceTimer;
-
-  static const String _userAgent = 'Dhundo-LostAndFound-App/1.0.0 (contact: saumyasura@example.com)';
 
   @override
   void initState() {
@@ -75,7 +71,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
         _selectedCoords = userCoords;
         _loadingLocation = false;
       });
-      _mapController.move(userCoords, 15.0);
+      _mapController?.animateCamera(CameraUpdate.newLatLngZoom(userCoords, 16.0));
       _reverseGeocode(userCoords);
     } catch (_) {
       setState(() => _loadingLocation = false);
@@ -88,47 +84,27 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
     });
 
     try {
-      final url = Uri.parse(
-        'https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.latitude}&lon=${coords.longitude}&zoom=18&addressdetails=1'
+      final address = await GoogleMapsService.reverseGeocode(
+        coords.latitude,
+        coords.longitude,
       );
-      final response = await http.get(url, headers: {'User-Agent': _userAgent}).timeout(const Duration(seconds: 4));
-      
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        String name = '';
-        if (data['address'] != null) {
-          final addr = data['address'] as Map;
-          name = addr['amenity'] ?? 
-                 addr['cafe'] ?? 
-                 addr['shop'] ?? 
-                 addr['tourism'] ?? 
-                 addr['building'] ?? 
-                 addr['road'] ?? 
-                 addr['suburb'] ?? 
-                 '';
-        }
-        if (name.isEmpty && data['display_name'] != null) {
-          name = data['display_name'].toString().split(',')[0];
-        }
-        if (name.isEmpty) {
-          name = 'Shared Spot';
-        }
+      if (mounted) {
         setState(() {
-          _labelController.text = name;
+          _labelController.text = address;
         });
       }
-    } catch (_) {
-      // Ignore geocoding failure, user can manually name it
     } finally {
-      setState(() {
-        _reverseGeocoding = false;
-      });
+      if (mounted) {
+        setState(() {
+          _reverseGeocoding = false;
+        });
+      }
     }
   }
 
   void _onSearchChanged(String query) {
     if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
-    _debounceTimer = Timer(const Duration(milliseconds: 600), () {
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
       if (query.trim().length > 2) {
         _performSearch(query.trim());
       } else {
@@ -145,58 +121,36 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
     });
 
     try {
-      final url = Uri.parse(
-        'https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(query)}&format=json&limit=5&addressdetails=1'
-      );
-      final response = await http.get(url, headers: {'User-Agent': _userAgent}).timeout(const Duration(seconds: 4));
-      
-      if (response.statusCode == 200) {
+      final results = await GoogleMapsService.searchPlaces(query);
+      if (mounted) {
         setState(() {
-          _searchResults = json.decode(response.body);
+          _searchResults = results;
         });
       }
-    } catch (_) {
-      // Silence network errors
     } finally {
-      setState(() {
-        _searching = false;
-      });
+      if (mounted) {
+        setState(() {
+          _searching = false;
+        });
+      }
     }
   }
 
-  void _selectSearchResult(dynamic result) {
-    final lat = double.tryParse(result['lat'] ?? '') ?? 0.0;
-    final lon = double.tryParse(result['lon'] ?? '') ?? 0.0;
-    if (lat == 0.0 || lon == 0.0) return;
+  void _selectSearchResult(Map<String, dynamic> result) {
+    final lat = result['lat'] as double;
+    final lng = result['lng'] as double;
+    final targetCoords = LatLng(lat, lng);
+    final address = result['address'] as String? ?? 'Shared Spot';
 
-    final targetCoords = LatLng(lat, lon);
-    
-    // Extract short name
-    String name = '';
-    if (result['address'] != null) {
-      final addr = result['address'] as Map;
-      name = addr['amenity'] ?? 
-             addr['cafe'] ?? 
-             addr['shop'] ?? 
-             addr['tourism'] ?? 
-             addr['building'] ?? 
-             addr['road'] ?? 
-             addr['suburb'] ?? 
-             '';
-    }
-    if (name.isEmpty && result['display_name'] != null) {
-      name = result['display_name'].toString().split(',')[0];
-    }
-    
     setState(() {
       _selectedCoords = targetCoords;
       _searchResults = [];
       _searchController.clear();
-      _labelController.text = name.isNotEmpty ? name : 'Shared Spot';
+      _labelController.text = address;
     });
 
     FocusScope.of(context).unfocus();
-    _mapController.move(targetCoords, 16.0);
+    _mapController?.animateCamera(CameraUpdate.newLatLngZoom(targetCoords, 16.0));
   }
 
   @override
@@ -214,40 +168,41 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
       ),
       body: Stack(
         children: [
-          // Flutter Map
-          FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: _selectedCoords,
-              initialZoom: 15.0,
-              onTap: (_, point) {
-                setState(() {
-                  _selectedCoords = point;
-                });
-                _reverseGeocode(point);
-              },
+          // Google Map
+          GoogleMap(
+            style: GoogleMapsService.darkMapStyle,
+            initialCameraPosition: CameraPosition(
+              target: _selectedCoords,
+              zoom: 15.0,
             ),
-            children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.example.dhundo',
-                tileProvider: CachedTileProvider(),
+            onMapCreated: (controller) {
+              _mapController = controller;
+            },
+            markers: {
+              Marker(
+                markerId: const MarkerId('picked_location'),
+                position: _selectedCoords,
+                icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+                draggable: true,
+                onDragEnd: (newCoords) {
+                  setState(() {
+                    _selectedCoords = newCoords;
+                  });
+                  _reverseGeocode(newCoords);
+                },
               ),
-              MarkerLayer(
-                markers: [
-                  Marker(
-                    point: _selectedCoords,
-                    width: 50,
-                    height: 50,
-                    child: const Icon(
-                      Icons.location_pin,
-                      color: AppTheme.lostColor,
-                      size: 40,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+            },
+            onTap: (coords) {
+              setState(() {
+                _selectedCoords = coords;
+              });
+              _reverseGeocode(coords);
+            },
+            myLocationEnabled: true,
+            myLocationButtonEnabled: false,
+            zoomControlsEnabled: false,
+            mapToolbarEnabled: false,
+            compassEnabled: true,
           ),
 
           // Search Bar Overlay
@@ -259,7 +214,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
               children: [
                 Container(
                   decoration: BoxDecoration(
-                    color: AppTheme.cardBg.withOpacity(0.95),
+                    color: AppTheme.cardBg.withValues(alpha: 0.95),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: AppTheme.border, width: 1.2),
                     boxShadow: [AppTheme.cardShadow],
@@ -269,7 +224,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
                     onChanged: _onSearchChanged,
                     style: const TextStyle(color: AppTheme.textPrimary),
                     decoration: InputDecoration(
-                      hintText: 'Search places, cafes, landmarks...',
+                      hintText: 'Search places with Google Maps...',
                       hintStyle: const TextStyle(color: AppTheme.textMuted),
                       prefixIcon: const Icon(Icons.search, color: AppTheme.secondary),
                       suffixIcon: _searching
@@ -304,7 +259,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
                     margin: const EdgeInsets.only(top: 8),
                     constraints: const BoxConstraints(maxHeight: 250),
                     decoration: BoxDecoration(
-                      color: AppTheme.cardBg.withOpacity(0.95),
+                      color: AppTheme.cardBg.withValues(alpha: 0.95),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: AppTheme.border, width: 1),
                       boxShadow: [AppTheme.cardShadow],
@@ -320,7 +275,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
                           dense: true,
                           leading: const Icon(Icons.location_on_outlined, color: AppTheme.secondary, size: 20),
                           title: Text(
-                            res['display_name'] ?? 'Place',
+                            res['address'] ?? 'Place',
                             style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
@@ -346,13 +301,42 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text(
-                    'Selected Location Details',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.secondary,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Selected Location Details',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.secondary,
+                        ),
+                      ),
+                      // Street View inspection button
+                      InkWell(
+                        onTap: () {
+                          StreetViewDialog.show(
+                            context,
+                            latitude: _selectedCoords.latitude,
+                            longitude: _selectedCoords.longitude,
+                            locationTitle: _labelController.text.isNotEmpty
+                                ? _labelController.text
+                                : 'Selected Location',
+                          );
+                        },
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(Icons.streetview_rounded, size: 14, color: AppTheme.secondary),
+                            SizedBox(width: 4),
+                            Text(
+                              'Street View',
+                              style: TextStyle(fontSize: 12, color: AppTheme.secondary, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 10),
                   Row(
@@ -365,7 +349,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
                           style: const TextStyle(
                             color: AppTheme.textPrimary,
                             fontWeight: FontWeight.bold,
-                            fontSize: 15,
+                            fontSize: 14,
                           ),
                           decoration: InputDecoration(
                             hintText: 'Name this location...',
@@ -441,10 +425,10 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
               ),
             ),
           ),
-          
+
           if (_loadingLocation)
             Container(
-              color: Colors.black.withOpacity(0.5),
+              color: Colors.black.withValues(alpha: 0.5),
               child: const Center(
                 child: CircularProgressIndicator(color: AppTheme.primary),
               ),

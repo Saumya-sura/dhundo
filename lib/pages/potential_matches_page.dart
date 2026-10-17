@@ -104,7 +104,7 @@ class _PotentialMatchesPageState extends State<PotentialMatchesPage> {
           // Informational Warning Banner
           Container(
             padding: const EdgeInsets.all(16),
-            color: AppTheme.secondary.withOpacity(0.08),
+            color: AppTheme.secondary.withValues(alpha: 0.08),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -174,7 +174,7 @@ class _PotentialMatchesPageState extends State<PotentialMatchesPage> {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: color.withOpacity(0.12),
+                                    color: color.withValues(alpha: 0.12),
                                     borderRadius: BorderRadius.circular(6),
                                     border: Border.all(color: color, width: 0.8),
                                   ),

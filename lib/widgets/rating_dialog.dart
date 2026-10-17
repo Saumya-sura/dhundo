@@ -152,7 +152,7 @@ class _RatingDialogState extends State<RatingDialog> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                      color: isSelected ? AppTheme.primary.withOpacity(0.2) : AppTheme.darkBg,
+                      color: isSelected ? AppTheme.primary.withValues(alpha: 0.2) : AppTheme.darkBg,
                       border: Border.all(
                         color: isSelected ? AppTheme.primary : AppTheme.border,
                         width: 1.2,

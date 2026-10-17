@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:async';
 import '../models/chat_model.dart';
 import '../services/firebase_service.dart';
+import '../services/google_maps_service.dart';
 import '../theme/app_theme.dart';
 import 'call_overlay_page.dart';
 import '../widgets/rating_dialog.dart';
 import '../widgets/glass_card.dart';
+import '../widgets/street_view_dialog.dart';
 import '../services/safe_places_service.dart';
-import '../widgets/cached_tile_provider.dart';
 import 'location_picker_page.dart';
 import 'location_navigation_page.dart';
 
@@ -28,7 +29,7 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final MapController _chatMapController = MapController();
+  GoogleMapController? _chatMapController;
 
   StreamSubscription? _incomingCallSubscription;
   StreamSubscription? _locationStreamSubscription;
@@ -131,8 +132,11 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
+  Timer? _autoReplyTimer;
+
   @override
   void dispose() {
+    _autoReplyTimer?.cancel();
     _messageController.dispose();
     _scrollController.dispose();
     _incomingCallSubscription?.cancel();
@@ -145,6 +149,35 @@ class _ChatPageState extends State<ChatPage> {
       firebaseService.stopSharingLocation(widget.chatRoom.id);
     }
     super.dispose();
+  }
+
+  void _scheduleAutoReply(FirebaseService firebaseService) {
+    _autoReplyTimer?.cancel();
+    _autoReplyTimer = Timer(const Duration(seconds: 60), () async {
+      if (!mounted) return;
+      final currentUserId = firebaseService.currentUserId ?? '';
+      final isOwner = widget.chatRoom.ownerId == currentUserId;
+      final otherPartyId = isOwner
+          ? widget.chatRoom.finderId
+          : widget.chatRoom.ownerId;
+      final otherPartyName = isOwner
+          ? widget.chatRoom.finderName
+          : widget.chatRoom.ownerName;
+
+      final autoReplyText =
+          "Hey! I'm currently busy right now, but I saw your message and will read it in a little while. Don't worry at all, your ${widget.chatRoom.itemTitle} will be safely returned and we'll arrange the handover! 🤝";
+
+      try {
+        await firebaseService.sendMessage(
+          widget.chatRoom.id,
+          autoReplyText,
+          otherPartyName.isNotEmpty ? otherPartyName : 'Other Party',
+          senderId: otherPartyId,
+        );
+      } catch (e) {
+        debugPrint('Auto-reply error: $e');
+      }
+    });
   }
 
   void _send(FirebaseService firebaseService) async {
@@ -161,6 +194,7 @@ class _ChatPageState extends State<ChatPage> {
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOut,
       );
+      _scheduleAutoReply(firebaseService);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -418,7 +452,7 @@ class _ChatPageState extends State<ChatPage> {
                               ),
                               child: ListTile(
                                 leading: CircleAvatar(
-                                  backgroundColor: iconColor.withOpacity(0.12),
+                                  backgroundColor: iconColor.withValues(alpha: 0.12),
                                   child: Icon(icon, color: iconColor, size: 20),
                                 ),
                                 title: Text(
@@ -477,7 +511,7 @@ class _ChatPageState extends State<ChatPage> {
                                 ),
                               ),
                             );
-                          }).toList(),
+                          }),
                       ],
                     );
                   },
@@ -488,6 +522,22 @@ class _ChatPageState extends State<ChatPage> {
         );
       },
     );
+  }
+
+  void _openSafeSpotsSheet(BuildContext context, FirebaseService firebaseService) async {
+    try {
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.medium,
+        timeLimit: const Duration(seconds: 4),
+      );
+      if (context.mounted) {
+        _showSafeHandoverBottomSheet(context, pos.latitude, pos.longitude, firebaseService);
+      }
+    } catch (_) {
+      if (context.mounted) {
+        _showSafeHandoverBottomSheet(context, 28.6139, 77.2090, firebaseService);
+      }
+    }
   }
 
   Widget _buildChecklistItem(String text) {
@@ -520,6 +570,7 @@ class _ChatPageState extends State<ChatPage> {
     'On my way! 🏃‍♂️',
     'I have arrived. 📍',
     'Can we meet in a public space? 🤝',
+    'Propose Safe Spot 🛡️',
     'Can you send another photo? 📸',
     'Thank you! 🙏',
   ];
@@ -548,96 +599,231 @@ class _ChatPageState extends State<ChatPage> {
         return Scaffold(
           appBar: AppBar(
             titleSpacing: 0,
-            title: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            title: Row(
               children: [
-                Text(
-                  otherPartyName,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 19,
+                      backgroundColor: AppTheme.primary.withValues(alpha: 0.2),
+                      child: Text(
+                        otherPartyName.isNotEmpty ? otherPartyName[0].toUpperCase() : '?',
+                        style: const TextStyle(
+                          color: AppTheme.primaryAccent,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        width: 9,
+                        height: 9,
+                        decoration: BoxDecoration(
+                          color: AppTheme.foundColor,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: AppTheme.darkBg, width: 1.5),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                Text(
-                  'Re: ${widget.chatRoom.itemTitle}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.secondary,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        otherPartyName,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.textPrimary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Container(
+                        margin: const EdgeInsets.only(top: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: AppTheme.secondary.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: AppTheme.secondary.withValues(alpha: 0.3),
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Text(
+                          widget.chatRoom.itemTitle,
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.secondary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
             actions: [
               // Live Location Toggle Button
-              IconButton(
-                icon: Icon(
-                  _isSharingLocation
-                      ? Icons.location_disabled_rounded
-                      : Icons.my_location_rounded,
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
                   color: _isSharingLocation
-                      ? AppTheme.lostColor
-                      : AppTheme.secondary,
+                      ? AppTheme.lostColor.withValues(alpha: 0.15)
+                      : AppTheme.cardBg,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: _isSharingLocation
+                        ? AppTheme.lostColor.withValues(alpha: 0.5)
+                        : AppTheme.border,
+                    width: 1,
+                  ),
                 ),
-                tooltip: _isSharingLocation
-                    ? 'Stop Sharing Location'
-                    : 'Share Location',
-                onPressed: () => _toggleLocationSharing(firebaseService),
+                child: IconButton(
+                  padding: const EdgeInsets.all(8),
+                  constraints: const BoxConstraints(),
+                  icon: Icon(
+                    _isSharingLocation
+                        ? Icons.location_disabled_rounded
+                        : Icons.my_location_rounded,
+                    color: _isSharingLocation
+                        ? AppTheme.lostColor
+                        : AppTheme.secondary,
+                    size: 19,
+                  ),
+                  tooltip: _isSharingLocation
+                      ? 'Stop Sharing Location'
+                      : 'Share Live Location',
+                  onPressed: () => _toggleLocationSharing(firebaseService),
+                ),
               ),
+              const SizedBox(width: 6),
               // Call Button
-              IconButton(
-                icon: const Icon(
-                  Icons.phone_rounded,
-                  color: AppTheme.secondary,
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppTheme.cardBg,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppTheme.border, width: 1),
                 ),
-                tooltip: 'Call',
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => CallOverlayPage(
-                        chatRoomId: widget.chatRoom.id,
-                        otherPartyName: otherPartyName,
-                        isCaller: true,
+                child: IconButton(
+                  padding: const EdgeInsets.all(8),
+                  constraints: const BoxConstraints(),
+                  icon: const Icon(
+                    Icons.phone_rounded,
+                    color: AppTheme.secondary,
+                    size: 19,
+                  ),
+                  tooltip: 'Voice Call',
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => CallOverlayPage(
+                          chatRoomId: widget.chatRoom.id,
+                          otherPartyName: otherPartyName,
+                          isCaller: true,
+                        ),
                       ),
-                    ),
-                  );
-                },
-              ),
-              // Resolve button only if current user is owner or finder
-              IconButton(
-                icon: const Icon(
-                  Icons.check_circle_rounded,
-                  color: AppTheme.foundColor,
+                    );
+                  },
                 ),
-                tooltip: 'Mark Resolved',
-                onPressed: () => _resolveItem(firebaseService),
+              ),
+              const SizedBox(width: 6),
+              // Resolve button only if current user is owner or finder
+              Container(
+                margin: const EdgeInsets.only(top: 8, bottom: 8, right: 10),
+                decoration: BoxDecoration(
+                  color: AppTheme.cardBg,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppTheme.border, width: 1),
+                ),
+                child: IconButton(
+                  padding: const EdgeInsets.all(8),
+                  constraints: const BoxConstraints(),
+                  icon: const Icon(
+                    Icons.check_circle_rounded,
+                    color: AppTheme.foundColor,
+                    size: 19,
+                  ),
+                  tooltip: 'Mark Resolved',
+                  onPressed: () => _resolveItem(firebaseService),
+                ),
               ),
             ],
           ),
           body: Column(
             children: [
-              // Safety Tip Banner
+              // Safety Tip & Meeting Spot Banner
               Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
+                margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppTheme.secondary.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppTheme.secondary.withValues(alpha: 0.25),
+                    width: 1,
+                  ),
                 ),
-                color: AppTheme.secondary.withOpacity(0.08),
                 child: Row(
-                  children: const [
-                    Icon(
-                      Icons.shield_outlined,
-                      color: AppTheme.secondary,
-                      size: 16,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: AppTheme.secondary.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.shield_outlined,
+                        color: AppTheme.secondary,
+                        size: 16,
+                      ),
                     ),
-                    SizedBox(width: 8),
-                    Expanded(
+                    const SizedBox(width: 10),
+                    const Expanded(
                       child: Text(
-                        'Safety tip: Coordinate handovers in public, well-lit spaces.',
+                        'Coordinate handovers in safe, public places.',
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 11.5,
                           color: AppTheme.textSecondary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () => _openSafeSpotsSheet(context, firebaseService),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppTheme.secondary.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(Icons.place_rounded, size: 12, color: AppTheme.secondary),
+                            SizedBox(width: 4),
+                            Text(
+                              'Safe Spots',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.secondary,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -700,15 +886,29 @@ class _ChatPageState extends State<ChatPage> {
 
                         WidgetsBinding.instance.addPostFrameCallback((_) {
                           if (distanceInMeters < 10) {
-                            _chatMapController.move(point1!, 15.0);
+                            _chatMapController?.animateCamera(
+                              CameraUpdate.newLatLngZoom(point1!, 15.0),
+                            );
                           } else {
-                            _chatMapController.fitCamera(
-                              CameraFit.bounds(
-                                bounds: LatLngBounds.fromPoints([
-                                  point1!,
-                                  point2!,
-                                ]),
-                                padding: const EdgeInsets.all(32.0),
+                            final southLat = point1!.latitude < point2!.latitude
+                                ? point1.latitude
+                                : point2.latitude;
+                            final northLat = point1.latitude > point2.latitude
+                                ? point1.latitude
+                                : point2.latitude;
+                            final westLng = point1.longitude < point2.longitude
+                                ? point1.longitude
+                                : point2.longitude;
+                            final eastLng = point1.longitude > point2.longitude
+                                ? point1.longitude
+                                : point2.longitude;
+                            _chatMapController?.animateCamera(
+                              CameraUpdate.newLatLngBounds(
+                                LatLngBounds(
+                                  southwest: LatLng(southLat, westLng),
+                                  northeast: LatLng(northLat, eastLng),
+                                ),
+                                40.0,
                               ),
                             );
                           }
@@ -720,94 +920,63 @@ class _ChatPageState extends State<ChatPage> {
                           (loc['longitude'] as num).toDouble(),
                         );
                         WidgetsBinding.instance.addPostFrameCallback((_) {
-                          _chatMapController.move(point, 15.0);
+                          _chatMapController?.animateCamera(
+                            CameraUpdate.newLatLngZoom(point, 15.0),
+                          );
                         });
                       }
 
+                      final initialTarget = LatLng(
+                        (liveCoords.values.first['latitude'] as num).toDouble(),
+                        (liveCoords.values.first['longitude'] as num).toDouble(),
+                      );
+
+                      final liveMarkers = liveCoords.entries.map((entry) {
+                        final uid = entry.key;
+                        final data = entry.value;
+                        final isMe = uid == currentUserId;
+                        return Marker(
+                          markerId: MarkerId(uid),
+                          position: LatLng(
+                            (data['latitude'] as num).toDouble(),
+                            (data['longitude'] as num).toDouble(),
+                          ),
+                          icon: BitmapDescriptor.defaultMarkerWithHue(
+                            isMe ? BitmapDescriptor.hueViolet : BitmapDescriptor.hueCyan,
+                          ),
+                          infoWindow: InfoWindow(title: isMe ? 'Me' : otherPartyName),
+                        );
+                      }).toSet();
+
+                      final livePolylines = (point1 != null && point2 != null)
+                          ? {
+                              Polyline(
+                                polylineId: const PolylineId('live_connection'),
+                                points: [point1, point2],
+                                color: AppTheme.primary,
+                                width: 3,
+                                patterns: [PatternItem.dash(20), PatternItem.gap(10)],
+                              ),
+                            }
+                          : <Polyline>{};
+
                       return Stack(
                         children: [
-                          FlutterMap(
-                            mapController: _chatMapController,
-                            options: MapOptions(
-                              initialCenter: LatLng(
-                                (liveCoords.values.first['latitude'] as num)
-                                    .toDouble(),
-                                (liveCoords.values.first['longitude'] as num)
-                                    .toDouble(),
-                              ),
-                              initialZoom: 15.0,
+                          GoogleMap(
+                            style: GoogleMapsService.darkMapStyle,
+                            initialCameraPosition: CameraPosition(
+                              target: initialTarget,
+                              zoom: 15.0,
                             ),
-                            children: [
-                              TileLayer(
-                                urlTemplate:
-                                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                userAgentPackageName: 'com.example.dhundo',
-                                tileProvider: CachedTileProvider(),
-                              ),
-                              if (point1 != null && point2 != null)
-                                PolylineLayer(
-                                  polylines: [
-                                    Polyline(
-                                      points: [point1, point2],
-                                      color: AppTheme.primary,
-                                      strokeWidth: 3.0,
-                                      isDotted: true,
-                                    ),
-                                  ],
-                                ),
-                              MarkerLayer(
-                                markers: liveCoords.entries.map((entry) {
-                                  final uid = entry.key;
-                                  final data = entry.value;
-                                  final isMe = uid == currentUserId;
-                                  return Marker(
-                                    point: LatLng(
-                                      (data['latitude'] as num).toDouble(),
-                                      (data['longitude'] as num).toDouble(),
-                                    ),
-                                    width: 50,
-                                    height: 50,
-                                    child: Column(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 4,
-                                            vertical: 2,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: AppTheme.cardBg,
-                                            borderRadius: BorderRadius.circular(
-                                              4,
-                                            ),
-                                            border: Border.all(
-                                              color: isMe
-                                                  ? AppTheme.primary
-                                                  : AppTheme.secondary,
-                                              width: 0.8,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            isMe ? 'Me' : otherPartyName,
-                                            style: const TextStyle(
-                                              fontSize: 8,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppTheme.textPrimary,
-                                            ),
-                                          ),
-                                        ),
-                                        Icon(
-                                          Icons.location_pin,
-                                          color: isMe
-                                              ? AppTheme.primary
-                                              : AppTheme.secondary,
-                                          size: 26,
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
-                            ],
+                            onMapCreated: (controller) {
+                              _chatMapController = controller;
+                            },
+                            markers: liveMarkers,
+                            polylines: livePolylines,
+                            myLocationEnabled: false,
+                            myLocationButtonEnabled: false,
+                            zoomControlsEnabled: false,
+                            mapToolbarEnabled: false,
                           ),
                           if (distanceText != null && etaText != null)
                             Positioned(
@@ -930,9 +1099,17 @@ class _ChatPageState extends State<ChatPage> {
                           'hh:mm a',
                         ).format(msg.timestamp);
 
-                        final isVerification = msg.text.startsWith(
-                          '🔑 Verification',
-                        );
+                        final isVerification = msg.text.startsWith('🔑 Verification') ||
+                            msg.text.startsWith('🔑');
+                        final isHandoverSpot = msg.text.contains('Proposed Handover Meeting Spot') ||
+                            msg.text.startsWith('🤝 Proposed');
+
+                        final Color bubbleBorderColor = isHandoverSpot
+                            ? AppTheme.foundColor
+                            : (isVerification ? const Color(0xFFF59E0B) : AppTheme.border);
+                        final Color bubbleCardColor = isHandoverSpot
+                            ? const Color(0xFF0F241A)
+                            : (isVerification ? const Color(0xFF1E1B18) : bubbleBg);
 
                         return Column(
                           crossAxisAlignment: alignment,
@@ -948,9 +1125,7 @@ class _ChatPageState extends State<ChatPage> {
                                     MediaQuery.of(context).size.width * 0.75,
                               ),
                               decoration: BoxDecoration(
-                                color: isVerification
-                                    ? Colors.teal.withOpacity(0.12)
-                                    : bubbleBg,
+                                color: bubbleCardColor,
                                 borderRadius: BorderRadius.only(
                                   topLeft: const Radius.circular(16),
                                   topRight: const Radius.circular(16),
@@ -962,11 +1137,18 @@ class _ChatPageState extends State<ChatPage> {
                                       : const Radius.circular(16),
                                 ),
                                 border: Border.all(
-                                  color: isVerification
-                                      ? Colors.teal
-                                      : AppTheme.border,
-                                  width: isVerification ? 1.2 : 0.8,
+                                  color: bubbleBorderColor,
+                                  width: (isHandoverSpot || isVerification) ? 1.4 : 0.8,
                                 ),
+                                boxShadow: (isHandoverSpot || isVerification)
+                                    ? [
+                                        BoxShadow(
+                                          color: bubbleBorderColor.withValues(alpha: 0.15),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ]
+                                    : null,
                               ),
                               child: Builder(
                                 builder: (context) {
@@ -977,39 +1159,70 @@ class _ChatPageState extends State<ChatPage> {
                                       children: [
                                         // Mini Map
                                         Container(
-                                          height: 110,
+                                          height: 120,
                                           decoration: BoxDecoration(
                                             borderRadius: BorderRadius.circular(10),
                                             border: Border.all(color: AppTheme.border, width: 0.5),
                                           ),
                                           clipBehavior: Clip.antiAlias,
-                                          child: FlutterMap(
-                                            options: MapOptions(
-                                              initialCenter: LatLng(msg.latitude!, msg.longitude!),
-                                              initialZoom: 14.0,
-                                              interactionOptions: const InteractionOptions(
-                                                flags: InteractiveFlag.none,
-                                              ),
-                                            ),
+                                          child: Stack(
+                                            fit: StackFit.expand,
                                             children: [
-                                              TileLayer(
-                                                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                                userAgentPackageName: 'com.example.dhundo',
-                                                tileProvider: CachedTileProvider(),
-                                              ),
-                                              MarkerLayer(
-                                                markers: [
-                                                  Marker(
-                                                    point: LatLng(msg.latitude!, msg.longitude!),
-                                                    width: 30,
-                                                    height: 30,
-                                                    child: const Icon(
-                                                      Icons.location_pin,
-                                                      color: AppTheme.lostColor,
-                                                      size: 24,
+                                              CachedNetworkImage(
+                                                imageUrl: GoogleMapsService.getStaticMapUrl(
+                                                  lat: msg.latitude!,
+                                                  lng: msg.longitude!,
+                                                  zoom: 15,
+                                                  width: 400,
+                                                  height: 240,
+                                                  isLost: true,
+                                                ),
+                                                fit: BoxFit.cover,
+                                                placeholder: (context, url) => Container(
+                                                  color: AppTheme.darkBg,
+                                                  child: const Center(
+                                                    child: CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                      color: AppTheme.secondary,
                                                     ),
                                                   ),
-                                                ],
+                                                ),
+                                                errorWidget: (context, url, error) => Container(
+                                                  color: AppTheme.darkBg,
+                                                  child: const Center(
+                                                    child: Icon(Icons.map, color: AppTheme.textMuted),
+                                                  ),
+                                                ),
+                                              ),
+                                              Positioned(
+                                                top: 6,
+                                                right: 6,
+                                                child: InkWell(
+                                                  onTap: () {
+                                                    StreetViewDialog.show(
+                                                      context,
+                                                      latitude: msg.latitude!,
+                                                      longitude: msg.longitude!,
+                                                      locationTitle: msg.locationName ?? 'Shared Location',
+                                                    );
+                                                  },
+                                                  child: Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.black.withValues(alpha: 0.7),
+                                                      borderRadius: BorderRadius.circular(6),
+                                                      border: Border.all(color: Colors.white24, width: 0.5),
+                                                    ),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: const [
+                                                        Icon(Icons.streetview_rounded, size: 12, color: AppTheme.secondary),
+                                                        SizedBox(width: 4),
+                                                        Text('Street View', style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
                                               ),
                                             ],
                                           ),
@@ -1077,10 +1290,187 @@ class _ChatPageState extends State<ChatPage> {
                                             style: TextStyle(
                                               fontSize: 9,
                                               color: isMe
-                                                  ? Colors.white.withOpacity(0.7)
+                                                  ? Colors.white.withValues(alpha: 0.7)
                                                   : AppTheme.textMuted,
                                             ),
                                           ),
+                                        ),
+                                      ],
+                                    );
+                                  }
+
+                                  if (isVerification) {
+                                    String questionText = msg.text;
+                                    if (questionText.startsWith('🔑 Verification Question:')) {
+                                      questionText = questionText.replaceFirst('🔑 Verification Question:', '').trim();
+                                    } else if (questionText.startsWith('🔑 Verification:')) {
+                                      questionText = questionText.replaceFirst('🔑 Verification:', '').trim();
+                                    } else if (questionText.startsWith('🔑')) {
+                                      questionText = questionText.replaceFirst('🔑', '').trim();
+                                    }
+
+                                    return Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.all(4),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: const Icon(
+                                                Icons.vpn_key_rounded,
+                                                size: 13,
+                                                color: Color(0xFFFBBF24),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 7),
+                                            const Text(
+                                              'VERIFICATION QUESTION',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w900,
+                                                letterSpacing: 0.6,
+                                                color: Color(0xFFFBBF24),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Container(
+                                          width: double.infinity,
+                                          padding: const EdgeInsets.all(10),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.darkBg,
+                                            borderRadius: BorderRadius.circular(10),
+                                            border: Border.all(
+                                              color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
+                                              width: 0.8,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            questionText,
+                                            style: const TextStyle(
+                                              color: AppTheme.textPrimary,
+                                              fontSize: 13.5,
+                                              fontWeight: FontWeight.w600,
+                                              height: 1.3,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Row(
+                                          children: [
+                                            const Icon(
+                                              Icons.security_rounded,
+                                              size: 11,
+                                              color: AppTheme.textMuted,
+                                            ),
+                                            const SizedBox(width: 4),
+                                            const Expanded(
+                                              child: Text(
+                                                'Answer to confirm ownership',
+                                                style: TextStyle(
+                                                  fontSize: 9.5,
+                                                  color: AppTheme.textMuted,
+                                                ),
+                                              ),
+                                            ),
+                                            Text(
+                                              timeStr,
+                                              style: const TextStyle(
+                                                fontSize: 9,
+                                                color: AppTheme.textMuted,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    );
+                                  }
+
+                                  if (isHandoverSpot) {
+                                    return Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.all(4),
+                                              decoration: BoxDecoration(
+                                                color: AppTheme.foundColor.withValues(alpha: 0.2),
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: const Icon(
+                                                Icons.handshake_rounded,
+                                                size: 13,
+                                                color: AppTheme.foundColor,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 7),
+                                            const Text(
+                                              'SAFE HANDOVER PROPOSAL',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w900,
+                                                letterSpacing: 0.6,
+                                                color: AppTheme.foundColor,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Container(
+                                          width: double.infinity,
+                                          padding: const EdgeInsets.all(10),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.darkBg,
+                                            borderRadius: BorderRadius.circular(10),
+                                            border: Border.all(
+                                              color: AppTheme.foundColor.withValues(alpha: 0.3),
+                                              width: 0.8,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            msg.text,
+                                            style: const TextStyle(
+                                              color: AppTheme.textPrimary,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w500,
+                                              height: 1.35,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Row(
+                                          children: [
+                                            InkWell(
+                                              onTap: () => _openSafeSpotsSheet(context, firebaseService),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: const [
+                                                  Icon(Icons.swap_horiz_rounded, size: 12, color: AppTheme.secondary),
+                                                  SizedBox(width: 3),
+                                                  Text(
+                                                    'Suggest Alternate',
+                                                    style: TextStyle(fontSize: 10, color: AppTheme.secondary, fontWeight: FontWeight.bold),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            const Spacer(),
+                                            Text(
+                                              timeStr,
+                                              style: const TextStyle(
+                                                fontSize: 9,
+                                                color: AppTheme.textMuted,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ],
                                     );
@@ -1104,7 +1494,7 @@ class _ChatPageState extends State<ChatPage> {
                                           style: TextStyle(
                                             fontSize: 9,
                                             color: isMe
-                                                ? Colors.white.withOpacity(0.7)
+                                                ? Colors.white.withValues(alpha: 0.7)
                                                 : AppTheme.textMuted,
                                           ),
                                         ),
@@ -1124,54 +1514,76 @@ class _ChatPageState extends State<ChatPage> {
 
               // Handover templates bar
               Container(
-                height: 36,
-                margin: const EdgeInsets.only(top: 4, bottom: 4),
+                height: 38,
+                margin: const EdgeInsets.only(top: 4, bottom: 6),
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
                   itemCount: _quickReplies.length,
                   itemBuilder: (context, index) {
                     final replyText = _quickReplies[index];
                     return Padding(
                       padding: const EdgeInsets.only(right: 8.0),
-                      child: ActionChip(
-                        label: Text(
-                          replyText,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppTheme.textPrimary,
+                      child: InkWell(
+                        onTap: () {
+                          if (replyText.contains('Safe Spot')) {
+                            _openSafeSpotsSheet(context, firebaseService);
+                          } else {
+                            _messageController.text = replyText;
+                            _send(firebaseService);
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                          decoration: BoxDecoration(
+                            color: AppTheme.cardBg,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: AppTheme.secondary.withValues(alpha: 0.35),
+                              width: 1,
+                            ),
+                          ),
+                          child: Center(
+                            child: Text(
+                              replyText,
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.textPrimary,
+                              ),
+                            ),
                           ),
                         ),
-                        backgroundColor: AppTheme.cardBg,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                          side: const BorderSide(color: AppTheme.border),
-                        ),
-                        onPressed: () {
-                          _messageController.text = replyText;
-                          _send(firebaseService);
-                        },
                       ),
                     );
                   },
                 ),
               ),
 
-              // Message Input Box
-              Padding(
-                padding: const EdgeInsets.all(12.0),
+              // Modern Floating Message Input Box
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                decoration: BoxDecoration(
+                  color: AppTheme.cardBg.withValues(alpha: 0.95),
+                  border: Border(top: BorderSide(color: AppTheme.border, width: 0.8)),
+                ),
                 child: Row(
                   children: [
-                    CircleAvatar(
-                      radius: 20,
-                      backgroundColor: AppTheme.cardBg,
+                    // Share location button
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppTheme.secondary.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.3)),
+                      ),
                       child: IconButton(
                         icon: const Icon(
                           Icons.add_location_alt_rounded,
                           color: AppTheme.secondary,
-                          size: 20,
+                          size: 19,
                         ),
-                        tooltip: 'Share Location',
+                        tooltip: 'Share Meeting Location',
                         onPressed: () async {
                           final result = await Navigator.push(
                             context,
@@ -1203,19 +1615,39 @@ class _ChatPageState extends State<ChatPage> {
                         },
                       ),
                     ),
+                    const SizedBox(width: 6),
+                    // Safe Spots shortcut button
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppTheme.primary.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.3)),
+                      ),
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.shield_rounded,
+                          color: AppTheme.primaryAccent,
+                          size: 19,
+                        ),
+                        tooltip: 'Suggest Safe Meetup Spot',
+                        onPressed: () => _openSafeSpotsSheet(context, firebaseService),
+                      ),
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: TextField(
                         controller: _messageController,
                         textCapitalization: TextCapitalization.sentences,
-                        style: const TextStyle(color: AppTheme.textPrimary),
+                        style: const TextStyle(color: AppTheme.textPrimary, fontSize: 14),
                         decoration: InputDecoration(
                           hintText: 'Type a message...',
+                          hintStyle: const TextStyle(color: AppTheme.textMuted, fontSize: 13),
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16,
-                            vertical: 12,
+                            vertical: 10,
                           ),
-                          fillColor: AppTheme.cardBg,
+                          filled: true,
+                          fillColor: AppTheme.darkBg,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(24),
                             borderSide: const BorderSide(
@@ -1232,6 +1664,7 @@ class _ChatPageState extends State<ChatPage> {
                             borderRadius: BorderRadius.circular(24),
                             borderSide: const BorderSide(
                               color: AppTheme.primary,
+                              width: 1.5,
                             ),
                           ),
                         ),
@@ -1239,9 +1672,18 @@ class _ChatPageState extends State<ChatPage> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    CircleAvatar(
-                      radius: 22,
-                      backgroundColor: AppTheme.primary,
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: AppTheme.primaryGradient,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.primary.withValues(alpha: 0.4),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          )
+                        ],
+                      ),
                       child: IconButton(
                         icon: const Icon(
                           Icons.send_rounded,

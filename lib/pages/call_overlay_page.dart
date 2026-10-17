@@ -25,9 +25,11 @@ class _CallOverlayPageState extends State<CallOverlayPage> with TickerProviderSt
   late AnimationController _waveformController;
   
   Timer? _callTimer;
+  Timer? _simulatedPickupTimer;
   int _secondsElapsed = 0;
   bool _isMuted = false;
   bool _isSpeakerOn = false;
+  bool _callInitiated = false;
   StreamSubscription? _chatSubscription;
 
   @override
@@ -43,30 +45,43 @@ class _CallOverlayPageState extends State<CallOverlayPage> with TickerProviderSt
       duration: const Duration(milliseconds: 600),
     )..repeat();
 
-    // Listen to calling updates in Firestore
     final firebaseService = Provider.of<FirebaseService>(context, listen: false);
+
+    if (widget.isCaller) {
+      _callInitiated = true;
+      // Initiate call in DB
+      firebaseService.initiateCall(
+        widget.chatRoomId,
+        firebaseService.currentUser?.displayName ?? 'Anonymous',
+      );
+
+      // Simulated pickup after 3.5 seconds for showcase / single-user testing
+      _simulatedPickupTimer = Timer(const Duration(milliseconds: 3500), () async {
+        if (mounted && _callTimer == null) {
+          await firebaseService.acceptCall(widget.chatRoomId);
+          _startCallTimer();
+        }
+      });
+    }
+
+    // Listen to calling updates in Firestore without prematurely closing
     _chatSubscription = firebaseService.getUserChatRooms().listen((rooms) {
       final currentRoom = rooms.where((r) => r.id == widget.chatRoomId).firstOrNull;
       
       if (currentRoom != null) {
         final status = currentRoom.callStatus;
-        if (status == null || status == 'ended') {
+        if (status == 'ended' && _callInitiated) {
           _endCallLocal(shouldUpdateDb: false);
         } else if (status == 'connected' && _callTimer == null) {
+          _simulatedPickupTimer?.cancel();
           _startCallTimer();
         }
-      } else {
-        _endCallLocal(shouldUpdateDb: false);
       }
     });
-
-    if (widget.isCaller) {
-      // Initiate the call in DB
-      firebaseService.initiateCall(widget.chatRoomId, firebaseService.currentUser?.displayName ?? 'Anonymous');
-    }
   }
 
   void _startCallTimer() {
+    _callTimer?.cancel();
     _callTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
         setState(() {
@@ -74,21 +89,27 @@ class _CallOverlayPageState extends State<CallOverlayPage> with TickerProviderSt
         });
       }
     });
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _acceptCall() async {
+    _simulatedPickupTimer?.cancel();
     final firebaseService = Provider.of<FirebaseService>(context, listen: false);
     await firebaseService.acceptCall(widget.chatRoomId);
     _startCallTimer();
   }
 
   void _declineOrEndCall() async {
+    _simulatedPickupTimer?.cancel();
     final firebaseService = Provider.of<FirebaseService>(context, listen: false);
     await firebaseService.endCall(widget.chatRoomId);
     _endCallLocal(shouldUpdateDb: true);
   }
 
   void _endCallLocal({required bool shouldUpdateDb}) async {
+    _simulatedPickupTimer?.cancel();
     _callTimer?.cancel();
     _chatSubscription?.cancel();
     
@@ -119,6 +140,7 @@ class _CallOverlayPageState extends State<CallOverlayPage> with TickerProviderSt
 
   @override
   void dispose() {
+    _simulatedPickupTimer?.cancel();
     _pulseController.dispose();
     _waveformController.dispose();
     _callTimer?.cancel();
@@ -149,8 +171,8 @@ class _CallOverlayPageState extends State<CallOverlayPage> with TickerProviderSt
                 colors: [
                   AppTheme.darkBg,
                   showConnectedView
-                      ? AppTheme.primary.withOpacity(0.12)
-                      : AppTheme.secondary.withOpacity(0.08),
+                      ? AppTheme.primary.withValues(alpha: 0.12)
+                      : AppTheme.secondary.withValues(alpha: 0.08),
                   AppTheme.darkBg
                 ],
                 begin: Alignment.topCenter,
@@ -179,7 +201,7 @@ class _CallOverlayPageState extends State<CallOverlayPage> with TickerProviderSt
                               gradient: AppTheme.primaryGradient,
                               boxShadow: [
                                 BoxShadow(
-                                  color: AppTheme.primary.withOpacity(0.4),
+                                  color: AppTheme.primary.withValues(alpha: 0.4),
                                   blurRadius: 20,
                                   spreadRadius: 4,
                                 )
@@ -315,15 +337,15 @@ class _CallOverlayPageState extends State<CallOverlayPage> with TickerProviderSt
                               FloatingActionButton(
                                 heroTag: 'declineCallBtn',
                                 backgroundColor: AppTheme.lostColor,
-                                child: const Icon(Icons.call_end_rounded, color: Colors.white),
                                 onPressed: _declineOrEndCall,
+                                child: const Icon(Icons.call_end_rounded, color: Colors.white),
                               ),
                               // Accept Button
                               FloatingActionButton(
                                 heroTag: 'acceptCallBtn',
                                 backgroundColor: AppTheme.foundColor,
-                                child: const Icon(Icons.call_rounded, color: Colors.white),
                                 onPressed: _acceptCall,
+                                child: const Icon(Icons.call_rounded, color: Colors.white),
                               ),
                             ],
                           )
@@ -332,8 +354,8 @@ class _CallOverlayPageState extends State<CallOverlayPage> with TickerProviderSt
                           FloatingActionButton(
                             heroTag: 'endCallBtn',
                             backgroundColor: AppTheme.lostColor,
-                            child: const Icon(Icons.call_end_rounded, color: Colors.white),
                             onPressed: _declineOrEndCall,
+                            child: const Icon(Icons.call_end_rounded, color: Colors.white),
                           ),
                         const SizedBox(height: 20),
                       ],

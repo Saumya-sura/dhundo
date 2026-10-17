@@ -100,7 +100,7 @@ class _HomePageState extends State<HomePage> {
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           border: Border(
-            top: BorderSide(color: AppTheme.border.withOpacity(0.4), width: 1),
+            top: BorderSide(color: AppTheme.border.withValues(alpha: 0.4), width: 1),
           ),
         ),
         child: BottomNavigationBar(

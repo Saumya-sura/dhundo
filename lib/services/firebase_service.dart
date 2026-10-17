@@ -304,11 +304,12 @@ class FirebaseService extends ChangeNotifier {
     String chatRoomId,
     String text,
     String senderName, {
+    String? senderId,
     double? latitude,
     double? longitude,
     String? locationName,
   }) async {
-    final uid = currentUserId;
+    final uid = senderId ?? currentUserId;
     if (uid == null) return;
 
     final batch = _db.batch();

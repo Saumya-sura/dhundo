@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import '../models/item_model.dart';
 import '../services/firebase_service.dart';
+import '../services/google_maps_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/glass_card.dart';
+import '../widgets/street_view_dialog.dart';
 import 'chat_page.dart';
-import '../widgets/cached_tile_provider.dart';
 
 class MapView extends StatefulWidget {
   const MapView({super.key});
@@ -18,7 +18,7 @@ class MapView extends StatefulWidget {
 }
 
 class _MapViewState extends State<MapView> {
-  final MapController _mapController = MapController();
+  GoogleMapController? _mapController;
   LatLng _currentCenter = const LatLng(28.6139, 77.2090); // Default to New Delhi
   bool _locating = true;
   ItemModel? _selectedItem;
@@ -71,11 +71,12 @@ class _MapViewState extends State<MapView> {
 
       final position = await Geolocator.getCurrentPosition();
       if (!mounted) return;
+      final newCenter = LatLng(position.latitude, position.longitude);
       setState(() {
-        _currentCenter = LatLng(position.latitude, position.longitude);
+        _currentCenter = newCenter;
         _locating = false;
       });
-      _mapController.move(_currentCenter, 14.0);
+      _mapController?.animateCamera(CameraUpdate.newLatLngZoom(newCenter, 14.0));
     } catch (_) {
       if (!mounted) return;
       setState(() => _locating = false);
@@ -158,6 +159,7 @@ class _MapViewState extends State<MapView> {
 
       if (hasAnswered != true) return;
 
+      // Save answer in chat upon room creation
       try {
         final currentUserName = firebaseService.currentUser?.displayName ?? 'Anonymous';
         final chatRoom = await firebaseService.getOrCreateChatRoom(
@@ -170,10 +172,11 @@ class _MapViewState extends State<MapView> {
           finderName: item.isLost ? currentUserName : item.reporterName,
         );
 
-        // Send the verification answer message automatically
-        final answerText = answerController.text.trim();
-        final verificationMsg = '🔑 Verification Attempt:\nQuestion: ${item.verificationQuestion}\nClaimant\'s Answer: $answerText';
-        await firebaseService.sendMessage(chatRoom.id, verificationMsg, currentUserName);
+        await firebaseService.sendMessage(
+          chatRoom.id,
+          "🔒 Verification Answer: ${answerController.text.trim()}",
+          currentUserName,
+        );
 
         if (mounted) {
           Navigator.push(
@@ -228,6 +231,32 @@ class _MapViewState extends State<MapView> {
     }
   }
 
+  Set<Marker> _buildMarkers(List<ItemModel> activeItems) {
+    return activeItems.map((item) {
+      final double hue = item.isAmberAlert
+          ? BitmapDescriptor.hueOrange
+          : (item.isLost ? BitmapDescriptor.hueRed : BitmapDescriptor.hueGreen);
+
+      return Marker(
+        markerId: MarkerId(item.id),
+        position: LatLng(item.latitude, item.longitude),
+        icon: BitmapDescriptor.defaultMarkerWithHue(hue),
+        infoWindow: InfoWindow(
+          title: item.title,
+          snippet: '${item.category} • ${item.isLost ? "LOST" : "FOUND"}',
+        ),
+        onTap: () {
+          setState(() {
+            _selectedItem = item;
+          });
+          _mapController?.animateCamera(
+            CameraUpdate.newLatLngZoom(LatLng(item.latitude, item.longitude), 15.0),
+          );
+        },
+      );
+    }).toSet();
+  }
+
   @override
   Widget build(BuildContext context) {
     final firebaseService = Provider.of<FirebaseService>(context);
@@ -237,66 +266,39 @@ class _MapViewState extends State<MapView> {
         stream: firebaseService.getItems(),
         builder: (context, snapshot) {
           List<ItemModel> items = snapshot.data ?? [];
-          
+
           // Filter items based on category and status
           List<ItemModel> activeItems = items.where((i) => i.status == 'active').toList();
-          
+
           if (_selectedCategory != 'All') {
             activeItems = activeItems.where((i) => i.category == _selectedCategory).toList();
           }
 
-          final markers = activeItems.map((item) {
-            final color = item.isLost ? AppTheme.lostColor : AppTheme.foundColor;
-            return Marker(
-              point: LatLng(item.latitude, item.longitude),
-              width: item.isAmberAlert ? 60 : 50,
-              height: item.isAmberAlert ? 60 : 50,
-              child: GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _selectedItem = item;
-                  });
-                  _mapController.move(LatLng(item.latitude, item.longitude), 15.0);
-                },
-                child: item.isAmberAlert
-                    ? PulsingAmberMarker(color: color)
-                    : Icon(
-                        item.isLost ? Icons.location_on_rounded : Icons.radar_rounded,
-                        color: color,
-                        size: 38,
-                        shadows: [
-                          Shadow(
-                            color: color.withOpacity(0.6),
-                            blurRadius: 8,
-                          )
-                        ],
-                      ),
-              ),
-            );
-          }).toList();
+          final markers = _buildMarkers(activeItems);
 
           return Stack(
             children: [
-              // OpenStreetMap Flutter Map
-              FlutterMap(
-                mapController: _mapController,
-                options: MapOptions(
-                  initialCenter: _currentCenter,
-                  initialZoom: 13.0,
-                  onTap: (_, __) {
-                    setState(() {
-                      _selectedItem = null;
-                    });
-                  },
+              // Google Maps View
+              GoogleMap(
+                style: GoogleMapsService.darkMapStyle,
+                initialCameraPosition: CameraPosition(
+                  target: _currentCenter,
+                  zoom: 13.0,
                 ),
-                children: [
-                  TileLayer(
-                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    userAgentPackageName: 'com.example.dhundo',
-                    tileProvider: CachedTileProvider(),
-                  ),
-                  MarkerLayer(markers: markers),
-                ],
+                onMapCreated: (controller) {
+                  _mapController = controller;
+                },
+                markers: markers,
+                myLocationEnabled: true,
+                myLocationButtonEnabled: false,
+                zoomControlsEnabled: false,
+                mapToolbarEnabled: false,
+                compassEnabled: true,
+                onTap: (_) {
+                  setState(() {
+                    _selectedItem = null;
+                  });
+                },
               ),
 
               // Geolocation Loading Overlay
@@ -350,7 +352,7 @@ class _MapViewState extends State<MapView> {
                               _selectedItem = null;
                             });
                           },
-                          backgroundColor: AppTheme.cardBg.withOpacity(0.8),
+                          backgroundColor: AppTheme.cardBg.withValues(alpha: 0.85),
                           selectedColor: AppTheme.primary,
                           checkmarkColor: Colors.white,
                           labelStyle: TextStyle(
@@ -389,8 +391,8 @@ class _MapViewState extends State<MapView> {
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
                                 color: _selectedItem!.isLost
-                                    ? AppTheme.lostColor.withOpacity(0.15)
-                                    : AppTheme.foundColor.withOpacity(0.15),
+                                    ? AppTheme.lostColor.withValues(alpha: 0.15)
+                                    : AppTheme.foundColor.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
                                   color: _selectedItem!.isLost
@@ -473,12 +475,27 @@ class _MapViewState extends State<MapView> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              'By ${_selectedItem!.reporterName}',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                color: AppTheme.textSecondary,
+                            // Street View Button
+                            OutlinedButton.icon(
+                              onPressed: () {
+                                StreetViewDialog.show(
+                                  context,
+                                  latitude: _selectedItem!.latitude,
+                                  longitude: _selectedItem!.longitude,
+                                  locationTitle: _selectedItem!.title,
+                                );
+                              },
+                              icon: const Icon(Icons.streetview_rounded, size: 16, color: AppTheme.secondary),
+                              label: const Text(
+                                'Street View',
+                                style: TextStyle(fontSize: 12, color: AppTheme.secondary),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: AppTheme.secondary),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
                               ),
                             ),
                             ElevatedButton.icon(
@@ -517,62 +534,6 @@ class _MapViewState extends State<MapView> {
         ),
         onPressed: _determinePosition,
         child: const Icon(Icons.my_location_rounded, size: 18),
-      ),
-    );
-  }
-}
-
-class PulsingAmberMarker extends StatefulWidget {
-  final Color color;
-  const PulsingAmberMarker({super.key, required this.color});
-
-  @override
-  State<PulsingAmberMarker> createState() => _PulsingAmberMarkerState();
-}
-
-class _PulsingAmberMarkerState extends State<PulsingAmberMarker> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 1),
-    )..repeat(reverse: true);
-    _animation = Tween<double>(begin: 0.85, end: 1.25).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ScaleTransition(
-      scale: _animation,
-      child: Container(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: widget.color.withOpacity(0.2),
-          boxShadow: [
-            BoxShadow(
-              color: widget.color.withOpacity(0.6),
-              blurRadius: 10,
-              spreadRadius: 3,
-            )
-          ],
-        ),
-        child: Icon(
-          Icons.warning_amber_rounded,
-          color: widget.color,
-          size: 26,
-        ),
       ),
     );
   }

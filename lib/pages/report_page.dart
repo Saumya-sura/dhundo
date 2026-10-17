@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import '../models/item_model.dart';
 import '../services/firebase_service.dart';
+import '../services/google_maps_service.dart';
+import '../widgets/street_view_dialog.dart';
 import '../theme/app_theme.dart';
 import '../widgets/custom_textfield.dart';
 import '../widgets/custom_button.dart';
 import 'potential_matches_page.dart';
-import '../widgets/cached_tile_provider.dart';
 
 class ReportPage extends StatefulWidget {
   final bool isActive;
@@ -34,7 +34,7 @@ class _ReportPageState extends State<ReportPage> {
   bool _submitting = false;
   bool _isAmberAlert = false;
 
-  final MapController _miniMapController = MapController();
+  GoogleMapController? _miniMapController;
 
   final List<String> _categories = [
     'Electronics',
@@ -105,7 +105,7 @@ class _ReportPageState extends State<ReportPage> {
         _selectedCoords = LatLng(position.latitude, position.longitude);
         _loadingLocation = false;
       });
-      _miniMapController.move(_selectedCoords, 14.0);
+      _miniMapController?.animateCamera(CameraUpdate.newLatLngZoom(_selectedCoords, 14.0));
     } catch (_) {
       if (!mounted) return;
       setState(() => _loadingLocation = false);
@@ -254,164 +254,370 @@ class _ReportPageState extends State<ReportPage> {
     });
   }
 
+  static const Map<String, IconData> _categoryIcons = {
+    'Electronics': Icons.phone_iphone_rounded,
+    'Keys': Icons.vpn_key_rounded,
+    'Wallets': Icons.account_balance_wallet_rounded,
+    'Documents': Icons.badge_outlined,
+    'Pets': Icons.pets_rounded,
+    'Clothing': Icons.checkroom_rounded,
+    'Others': Icons.category_rounded,
+  };
+
   @override
   Widget build(BuildContext context) {
+    final activeColor = _isLost ? AppTheme.lostColor : AppTheme.foundColor;
+    final activeGradient = _isLost ? AppTheme.lostGradient : AppTheme.foundGradient;
+
     return Scaffold(
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                'Report Lost or Found Item',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.textPrimary),
-              ),
-              const SizedBox(height: 14),
-
-              // Segmented controls for Lost/Found type
+              // Header title with icon
               Row(
                 children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => setState(() => _isLost = true),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: _isLost ? AppTheme.lostColor.withOpacity(0.15) : AppTheme.cardBg,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: _isLost ? AppTheme.lostColor : AppTheme.border,
-                            width: 1,
-                          ),
-                        ),
-                        child: Center(
-                          child: Text(
-                            'I LOST SOMETHING',
-                            style: TextStyle(
-                              color: _isLost ? AppTheme.lostColor : AppTheme.textSecondary,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: activeColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      _isLost ? Icons.search_rounded : Icons.volunteer_activism_rounded,
+                      color: activeColor,
+                      size: 22,
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: GestureDetector(
-                      onTap: () => setState(() {
-                        _isLost = false;
-                        _isAmberAlert = false;
-                      }),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: !_isLost ? AppTheme.foundColor.withOpacity(0.15) : AppTheme.cardBg,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: !_isLost ? AppTheme.foundColor : AppTheme.border,
-                            width: 1,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _isLost ? 'Report Lost Item' : 'Report Found Item',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.textPrimary,
+                            letterSpacing: -0.3,
                           ),
                         ),
-                        child: Center(
-                          child: Text(
-                            'I FOUND SOMETHING',
-                            style: TextStyle(
-                              color: !_isLost ? AppTheme.foundColor : AppTheme.textSecondary,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
+                        Text(
+                          _isLost
+                              ? 'Help our community find what you lost'
+                              : 'Help return a found item to its rightful owner',
+                          style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+
+              // Segmented controls for Lost/Found type
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: AppTheme.cardBg,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: AppTheme.border, width: 1),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _isLost = true),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          decoration: BoxDecoration(
+                            gradient: _isLost ? AppTheme.lostGradient : null,
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: _isLost
+                                ? [
+                                    BoxShadow(
+                                      color: AppTheme.lostColor.withValues(alpha: 0.35),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 3),
+                                    )
+                                  ]
+                                : null,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.search_rounded,
+                                size: 16,
+                                color: _isLost ? Colors.white : AppTheme.textSecondary,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'I LOST SOMETHING',
+                                style: TextStyle(
+                                  color: _isLost ? Colors.white : AppTheme.textSecondary,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() {
+                          _isLost = false;
+                          _isAmberAlert = false;
+                        }),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          decoration: BoxDecoration(
+                            gradient: !_isLost ? AppTheme.foundGradient : null,
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: !_isLost
+                                ? [
+                                    BoxShadow(
+                                      color: AppTheme.foundColor.withValues(alpha: 0.35),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 3),
+                                    )
+                                  ]
+                                : null,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.volunteer_activism_rounded,
+                                size: 16,
+                                color: !_isLost ? Colors.white : AppTheme.textSecondary,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'I FOUND SOMETHING',
+                                style: TextStyle(
+                                  color: !_isLost ? Colors.white : AppTheme.textSecondary,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Category Selector Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Item Category',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: activeColor.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: activeColor.withValues(alpha: 0.3), width: 1),
+                    ),
+                    child: Text(
+                      _category,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: activeColor,
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 10),
 
-              // Form fields
+              // Category Grid
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 4,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                  childAspectRatio: 0.95,
+                ),
+                itemCount: _categories.length,
+                itemBuilder: (context, index) {
+                  final cat = _categories[index];
+                  final isSelected = _category == cat;
+                  final icon = _categoryIcons[cat] ?? Icons.category_rounded;
+                  final isPet = cat == 'Pets';
+
+                  return InkWell(
+                    onTap: () {
+                      setState(() {
+                        _category = cat;
+                        if (!isPet) _isAmberAlert = false;
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(14),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? activeColor.withValues(alpha: 0.14)
+                            : AppTheme.cardBg,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isSelected ? activeColor : AppTheme.border,
+                          width: isSelected ? 1.8 : 1,
+                        ),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                  color: activeColor.withValues(alpha: 0.25),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                )
+                              ]
+                            : null,
+                      ),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? activeColor.withValues(alpha: 0.2)
+                                      : Colors.white.withValues(alpha: 0.05),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  icon,
+                                  size: 19,
+                                  color: isSelected ? activeColor : AppTheme.textSecondary,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                cat,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                  color: isSelected ? AppTheme.textPrimary : AppTheme.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (isPet && _isLost)
+                            Positioned(
+                              top: 5,
+                              right: 5,
+                              child: Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  color: AppTheme.lostColor,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 20),
+
+              // Title field
               CustomTextField(
                 controller: _titleController,
                 label: 'Item Title',
                 hint: 'e.g. Black Leather Wallet',
+                prefixIcon: Icons.title_rounded,
                 validator: (val) => val == null || val.isEmpty ? 'Title is required' : null,
               ),
               const SizedBox(height: 16),
 
-              // Category Selector dropdown
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppTheme.darkBg,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.border, width: 1),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButtonFormField<String>(
-                    value: _category,
-                    dropdownColor: AppTheme.cardBg,
-                    decoration: const InputDecoration(
-                      labelText: 'Category',
-                      border: InputBorder.none,
-                      filled: false,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                    onChanged: (val) {
-                      if (val != null) {
-                        setState(() {
-                          _category = val;
-                        });
-                      }
-                    },
-                    items: _categories.map((cat) {
-                      return DropdownMenuItem(value: cat, child: Text(cat));
-                    }).toList(),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
+              // Description field
               CustomTextField(
                 controller: _descController,
                 label: 'Description',
                 hint: 'Describe details, brands, tags, unique marks...',
+                prefixIcon: Icons.notes_rounded,
                 maxLines: 3,
                 validator: (val) => val == null || val.isEmpty ? 'Description is required' : null,
               ),
               const SizedBox(height: 16),
 
+              // Location Description field
               CustomTextField(
                 controller: _locDescController,
                 label: 'Location Description',
                 hint: 'e.g. Near Metro Station exit gate',
+                prefixIcon: Icons.place_outlined,
                 validator: (val) => val == null || val.isEmpty ? 'Location description is required' : null,
               ),
               const SizedBox(height: 16),
 
-
-
+              // Verification Question field
               CustomTextField(
                 controller: _verificationQuestionController,
                 label: 'Ownership Verification Question (Optional)',
                 hint: 'e.g. What color sticker is on the back?',
+                prefixIcon: Icons.verified_user_outlined,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 18),
 
+              // Amber Alert Card
               if (_category == 'Pets' && _isLost) ...[
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: AppTheme.lostColor.withOpacity(0.08),
-                    border: Border.all(color: AppTheme.lostColor.withOpacity(0.3), width: 1.2),
+                    color: AppTheme.lostColor.withValues(alpha: 0.08),
+                    border: Border.all(color: AppTheme.lostColor.withValues(alpha: 0.35), width: 1.2),
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.notification_important_rounded, color: AppTheme.lostColor, size: 28),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.lostColor.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.notification_important_rounded,
+                          color: AppTheme.lostColor,
+                          size: 22,
+                        ),
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -427,7 +633,7 @@ class _ReportPageState extends State<ReportPage> {
                             ),
                             SizedBox(height: 2),
                             Text(
-                              'Alert nearby users within a 5 km radius',
+                              'Instantly notifies nearby users in a 5 km radius',
                               style: TextStyle(
                                 color: AppTheme.textSecondary,
                                 fontSize: 11,
@@ -438,7 +644,7 @@ class _ReportPageState extends State<ReportPage> {
                       ),
                       Switch(
                         value: _isAmberAlert,
-                        activeColor: AppTheme.lostColor,
+                        activeThumbColor: AppTheme.lostColor,
                         onChanged: (val) {
                           setState(() {
                             _isAmberAlert = val;
@@ -448,98 +654,170 @@ class _ReportPageState extends State<ReportPage> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 18),
               ],
 
-              // Mini Map Picker
-              const Text(
-                'Pinpoint Location on Map',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.textSecondary),
-              ),
-              const SizedBox(height: 8),
+              // Mini Map Picker Section
               Container(
-                height: 220,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
+                  color: AppTheme.cardBg,
+                  borderRadius: BorderRadius.circular(18),
                   border: Border.all(color: AppTheme.border, width: 1),
                 ),
-                clipBehavior: Clip.antiAlias,
-                child: Stack(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    FlutterMap(
-                      mapController: _miniMapController,
-                      options: MapOptions(
-                        initialCenter: _selectedCoords,
-                        initialZoom: 14.0,
-                        onTap: (_, point) {
-                          setState(() {
-                            _selectedCoords = point;
-                          });
-                        },
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        TileLayer(
-                          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                          userAgentPackageName: 'com.example.dhundo',
-                          tileProvider: CachedTileProvider(),
-                        ),
-                        MarkerLayer(
-                          markers: [
-                            Marker(
-                              point: _selectedCoords,
-                              width: 40,
-                              height: 40,
-                              child: Icon(
-                                _isLost ? Icons.location_on : Icons.radar_rounded,
-                                color: _isLost ? AppTheme.lostColor : AppTheme.foundColor,
-                                size: 30,
+                        Row(
+                          children: const [
+                            Icon(Icons.map_rounded, size: 16, color: AppTheme.secondary),
+                            SizedBox(width: 6),
+                            Text(
+                              'Pinpoint on Map',
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textPrimary,
                               ),
-                            )
+                            ),
                           ],
+                        ),
+                        InkWell(
+                          onTap: () {
+                            StreetViewDialog.show(
+                              context,
+                              latitude: _selectedCoords.latitude,
+                              longitude: _selectedCoords.longitude,
+                              locationTitle: _locDescController.text.isNotEmpty
+                                  ? _locDescController.text
+                                  : 'Report Location',
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.secondary.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.3)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(Icons.streetview_rounded, size: 14, color: AppTheme.secondary),
+                                SizedBox(width: 4),
+                                Text(
+                                  '360° Street View',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: AppTheme.secondary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ],
                     ),
-                    if (_loadingLocation)
-                      Container(
-                        color: Colors.black.withOpacity(0.5),
-                        child: const Center(
-                          child: CircularProgressIndicator(),
-                        ),
+                    const SizedBox(height: 10),
+                    Container(
+                      height: 200,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppTheme.border, width: 1),
                       ),
-                    Positioned(
-                      bottom: 12,
-                      right: 12,
-                      child: FloatingActionButton(
-                        heroTag: 'miniMapLocateMe',
-                        mini: true,
-                        backgroundColor: AppTheme.cardBg,
-                        foregroundColor: AppTheme.textPrimary,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: const BorderSide(color: AppTheme.border, width: 1),
-                        ),
-                        onPressed: _fetchCurrentLocation,
-                        child: const Icon(Icons.my_location_rounded, size: 18),
+                      clipBehavior: Clip.antiAlias,
+                      child: Stack(
+                        children: [
+                          GoogleMap(
+                            style: GoogleMapsService.darkMapStyle,
+                            initialCameraPosition: CameraPosition(
+                              target: _selectedCoords,
+                              zoom: 14.0,
+                            ),
+                            onMapCreated: (controller) {
+                              _miniMapController = controller;
+                            },
+                            markers: {
+                              Marker(
+                                markerId: const MarkerId('report_pin'),
+                                position: _selectedCoords,
+                                icon: BitmapDescriptor.defaultMarkerWithHue(
+                                  _isLost ? BitmapDescriptor.hueRed : BitmapDescriptor.hueGreen,
+                                ),
+                                draggable: true,
+                                onDragEnd: (point) {
+                                  setState(() {
+                                    _selectedCoords = point;
+                                  });
+                                },
+                              ),
+                            },
+                            onTap: (point) {
+                              setState(() {
+                                _selectedCoords = point;
+                              });
+                            },
+                            myLocationEnabled: true,
+                            myLocationButtonEnabled: false,
+                            zoomControlsEnabled: false,
+                            mapToolbarEnabled: false,
+                          ),
+                          if (_loadingLocation)
+                            Container(
+                              color: Colors.black.withValues(alpha: 0.5),
+                              child: const Center(
+                                child: CircularProgressIndicator(color: AppTheme.primary),
+                              ),
+                            ),
+                          Positioned(
+                            bottom: 10,
+                            right: 10,
+                            child: FloatingActionButton(
+                              heroTag: 'miniMapLocateMe',
+                              mini: true,
+                              backgroundColor: AppTheme.cardBg,
+                              foregroundColor: AppTheme.textPrimary,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                side: const BorderSide(color: AppTheme.border, width: 1),
+                              ),
+                              onPressed: _fetchCurrentLocation,
+                              child: const Icon(Icons.my_location_rounded, size: 18),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.location_on_rounded, size: 12, color: AppTheme.textMuted),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${_selectedCoords.latitude.toStringAsFixed(4)}, ${_selectedCoords.longitude.toStringAsFixed(4)}',
+                          style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                        ),
+                      ],
+                    ),
                   ],
-                ),
-              ),
-              const SizedBox(height: 8),
-              Center(
-                child: Text(
-                  'Selected: Lat: ${_selectedCoords.latitude.toStringAsFixed(5)}, Lng: ${_selectedCoords.longitude.toStringAsFixed(5)}',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
                 ),
               ),
               const SizedBox(height: 24),
 
               CustomButton(
-                text: _isLost ? 'Report Lost Item' : 'Report Found Item',
+                text: _isLost ? 'Submit Lost Report' : 'Submit Found Report',
+                icon: _isLost ? Icons.search_rounded : Icons.check_circle_outline_rounded,
+                gradient: activeGradient,
                 isLoading: _submitting,
                 onPressed: _submit,
               ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 36),
             ],
           ),
         ),

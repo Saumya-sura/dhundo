@@ -6,10 +6,8 @@ import 'services/firebase_service.dart';
 import 'theme/app_theme.dart';
 import 'pages/auth_page.dart';
 import 'pages/home_page.dart';
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
@@ -20,7 +18,6 @@ void main() async {
 
   runApp(const MyApp());
 }
-
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -47,18 +44,17 @@ class AuthWrapper extends StatelessWidget {
 
     return StreamBuilder(
       stream: firebaseService.authStateChanges,
+      
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
         }
-
         final user = snapshot.data;
         if (user != null) {
           return const HomePage();
         }
-
         return const AuthPage();
       },
     );
