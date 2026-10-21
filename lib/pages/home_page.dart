@@ -103,41 +103,64 @@ class _HomePageState extends State<HomePage> {
             top: BorderSide(color: AppTheme.border.withValues(alpha: 0.4), width: 1),
           ),
         ),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
+        child: StreamBuilder<int>(
+          stream: firebaseService.getTotalUnreadMessagesCount(),
+          builder: (context, snapshot) {
+            final unreadCount = snapshot.data ?? 0;
+
+            return BottomNavigationBar(
+              currentIndex: _currentIndex,
+              onTap: (index) {
+                setState(() {
+                  _currentIndex = index;
+                });
+              },
+              type: BottomNavigationBarType.fixed,
+              backgroundColor: AppTheme.cardBg,
+              selectedItemColor: AppTheme.primaryAccent,
+              unselectedItemColor: AppTheme.textMuted,
+              selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+              unselectedLabelStyle: const TextStyle(fontSize: 12),
+              items: [
+                const BottomNavigationBarItem(
+                  icon: Icon(Icons.map_outlined),
+                  activeIcon: Icon(Icons.map, color: AppTheme.secondary),
+                  label: 'Map',
+                ),
+                const BottomNavigationBarItem(
+                  icon: Icon(Icons.feed_outlined),
+                  activeIcon: Icon(Icons.feed, color: AppTheme.primary),
+                  label: 'Feed',
+                ),
+                const BottomNavigationBarItem(
+                  icon: Icon(Icons.add_circle_outline_rounded),
+                  activeIcon: Icon(Icons.add_circle_rounded, color: AppTheme.secondary),
+                  label: 'Report',
+                ),
+                BottomNavigationBarItem(
+                  icon: Badge(
+                    isLabelVisible: unreadCount > 0,
+                    label: Text(
+                      unreadCount > 99 ? '99+' : '$unreadCount',
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                    backgroundColor: AppTheme.lostColor,
+                    child: const Icon(Icons.chat_bubble_outline_rounded),
+                  ),
+                  activeIcon: Badge(
+                    isLabelVisible: unreadCount > 0,
+                    label: Text(
+                      unreadCount > 99 ? '99+' : '$unreadCount',
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                    backgroundColor: AppTheme.lostColor,
+                    child: const Icon(Icons.chat_bubble_rounded, color: AppTheme.primary),
+                  ),
+                  label: 'Chats',
+                ),
+              ],
+            );
           },
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: AppTheme.cardBg,
-          selectedItemColor: AppTheme.primaryAccent,
-          unselectedItemColor: AppTheme.textMuted,
-          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-          unselectedLabelStyle: const TextStyle(fontSize: 12),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.map_outlined),
-              activeIcon: Icon(Icons.map, color: AppTheme.secondary),
-              label: 'Map',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.feed_outlined),
-              activeIcon: Icon(Icons.feed, color: AppTheme.primary),
-              label: 'Feed',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.add_circle_outline_rounded),
-              activeIcon: Icon(Icons.add_circle_rounded, color: AppTheme.secondary),
-              label: 'Report',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.chat_bubble_outline_rounded),
-              activeIcon: Icon(Icons.chat_bubble_rounded, color: AppTheme.primary),
-              label: 'Chats',
-            ),
-          ],
         ),
       ),
     );

@@ -15,6 +15,9 @@ class ChatRoomModel {
   final String? callStatus; // 'ringing', 'connected', 'ended', or null
   final String? callerId;
   final String? callerName;
+  final String? lastSenderId;
+  final List<String> unreadBy;
+  final Map<String, dynamic>? unreadCounts; // { uid: int count }
   final Map<String, dynamic>? liveLocations; // { uid: { 'latitude': double, 'longitude': double, 'updatedAt': Timestamp } }
 
   ChatRoomModel({
@@ -32,8 +35,21 @@ class ChatRoomModel {
     this.callStatus,
     this.callerId,
     this.callerName,
+    this.lastSenderId,
+    this.unreadBy = const [],
+    this.unreadCounts,
     this.liveLocations,
   });
+
+  int getUnreadCount(String? currentUserId) {
+    if (currentUserId == null) return 0;
+    if (unreadCounts != null && unreadCounts![currentUserId] != null) {
+      final val = unreadCounts![currentUserId];
+      if (val is num) return val.toInt();
+    }
+    if (unreadBy.contains(currentUserId)) return 1;
+    return 0;
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -51,6 +67,9 @@ class ChatRoomModel {
       'callStatus': callStatus,
       'callerId': callerId,
       'callerName': callerName,
+      'lastSenderId': lastSenderId,
+      'unreadBy': unreadBy,
+      'unreadCounts': unreadCounts,
       'liveLocations': liveLocations,
     };
   }
@@ -80,6 +99,9 @@ class ChatRoomModel {
       callStatus: map['callStatus'],
       callerId: map['callerId'],
       callerName: map['callerName'],
+      lastSenderId: map['lastSenderId'],
+      unreadBy: List<String>.from(map['unreadBy'] ?? []),
+      unreadCounts: map['unreadCounts'] != null ? Map<String, dynamic>.from(map['unreadCounts']) : null,
       liveLocations: map['liveLocations'] != null ? Map<String, dynamic>.from(map['liveLocations']) : null,
     );
   }

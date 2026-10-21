@@ -1,5 +1,28 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:http/http.dart' as http;
+
+class StreetViewMetadata {
+  final bool isAvailable;
+  final String? panoId;
+  final double? latitude;
+  final double? longitude;
+  final String? date;
+  final String? copyright;
+  final double? distanceMeters;
+
+  const StreetViewMetadata({
+    required this.isAvailable,
+    this.panoId,
+    this.latitude,
+    this.longitude,
+    this.date,
+    this.copyright,
+    this.distanceMeters,
+  });
+
+  static const StreetViewMetadata unavailable = StreetViewMetadata(isAvailable: false);
+}
 
 class GoogleMapsService {
   static const String apiKey = 'AIzaSyAUjRVcmsVbmK6y5MO3COPCrvuZwi6ziIg';
@@ -166,33 +189,89 @@ class GoogleMapsService {
         '&key=$apiKey';
   }
 
+  static double calculateDistanceMeters(double lat1, double lon1, double lat2, double lon2) {
+    const p = 0.017453292519943295; // Math.PI / 180
+    final a = 0.5 -
+        math.cos((lat2 - lat1) * p) / 2 +
+        math.cos(lat1 * p) * math.cos(lat2 * p) * (1 - math.cos((lon2 - lon1) * p)) / 2;
+    return 12742000 * math.asin(math.sqrt(a));
+  }
+
   /// Generate Google Street View static image URL
   static String getStreetViewUrl({
-    required double lat,
-    required double lng,
+    double? lat,
+    double? lng,
+    String? panoId,
     int width = 600,
     int height = 400,
     int fov = 90,
+    int heading = 0,
+    int pitch = 0,
+    int radius = 1000,
   }) {
+    if (panoId != null && panoId.isNotEmpty) {
+      return 'https://maps.googleapis.com/maps/api/streetview'
+          '?size=${width}x$height'
+          '&pano=$panoId'
+          '&fov=$fov'
+          '&heading=$heading'
+          '&pitch=$pitch'
+          '&key=$apiKey';
+    }
     return 'https://maps.googleapis.com/maps/api/streetview'
         '?size=${width}x$height'
         '&location=$lat,$lng'
+        '&radius=$radius'
         '&fov=$fov'
+        '&heading=$heading'
+        '&pitch=$pitch'
         '&key=$apiKey';
   }
 
-  /// Check if Google Street View imagery exists for given coordinates
-  static Future<bool> hasStreetView(double lat, double lng) async {
+  /// Check and fetch Google Street View metadata within a given radius (default 1000m)
+  static Future<StreetViewMetadata> getStreetViewMetadata(
+    double lat,
+    double lng, {
+    int radius = 1000,
+  }) async {
     try {
       final url = Uri.parse(
-        'https://maps.googleapis.com/maps/api/streetview/metadata?location=$lat,$lng&key=$apiKey',
+        'https://maps.googleapis.com/maps/api/streetview/metadata?location=$lat,$lng&radius=$radius&key=$apiKey',
       );
-      final response = await http.get(url).timeout(const Duration(seconds: 4));
+      final response = await http.get(url).timeout(const Duration(seconds: 5));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        return data['status'] == 'OK';
+        if (data['status'] == 'OK') {
+          final panoId = data['pano_id'] as String?;
+          final loc = data['location'] as Map<String, dynamic>?;
+          final panoLat = (loc?['lat'] as num?)?.toDouble();
+          final panoLng = (loc?['lng'] as num?)?.toDouble();
+          final date = data['date'] as String?;
+          final copyright = data['copyright'] as String?;
+
+          double? dist;
+          if (panoLat != null && panoLng != null) {
+            dist = calculateDistanceMeters(lat, lng, panoLat, panoLng);
+          }
+
+          return StreetViewMetadata(
+            isAvailable: true,
+            panoId: panoId,
+            latitude: panoLat,
+            longitude: panoLng,
+            date: date,
+            copyright: copyright,
+            distanceMeters: dist,
+          );
+        }
       }
     } catch (_) {}
-    return false;
+    return StreetViewMetadata.unavailable;
+  }
+
+  /// Backward-compatible check for Street View imagery
+  static Future<bool> hasStreetView(double lat, double lng, {int radius = 1000}) async {
+    final meta = await getStreetViewMetadata(lat, lng, radius: radius);
+    return meta.isAvailable;
   }
 }

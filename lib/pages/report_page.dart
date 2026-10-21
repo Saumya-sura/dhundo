@@ -33,6 +33,7 @@ class _ReportPageState extends State<ReportPage> {
   bool _loadingLocation = true;
   bool _submitting = false;
   bool _isAmberAlert = false;
+  bool _reverseGeocoding = false;
 
   GoogleMapController? _miniMapController;
 
@@ -67,6 +68,27 @@ class _ReportPageState extends State<ReportPage> {
     _locDescController.dispose();
     _verificationQuestionController.dispose();
     super.dispose();
+  }
+
+  Future<void> _reverseGeocode(LatLng coords) async {
+    if (!mounted) return;
+    setState(() => _reverseGeocoding = true);
+    try {
+      final address = await GoogleMapsService.reverseGeocode(
+        coords.latitude,
+        coords.longitude,
+      );
+      if (mounted && address.isNotEmpty && address != 'Selected Location') {
+        setState(() {
+          _locDescController.text = address;
+        });
+      }
+    } catch (_) {
+    } finally {
+      if (mounted) {
+        setState(() => _reverseGeocoding = false);
+      }
+    }
   }
 
   Future<void> _fetchCurrentLocation() async {
@@ -106,6 +128,7 @@ class _ReportPageState extends State<ReportPage> {
         _loadingLocation = false;
       });
       _miniMapController?.animateCamera(CameraUpdate.newLatLngZoom(_selectedCoords, 14.0));
+      _reverseGeocode(_selectedCoords);
     } catch (_) {
       if (!mounted) return;
       setState(() => _loadingLocation = false);
@@ -580,8 +603,18 @@ class _ReportPageState extends State<ReportPage> {
               CustomTextField(
                 controller: _locDescController,
                 label: 'Location Description',
-                hint: 'e.g. Near Metro Station exit gate',
+                hint: _reverseGeocoding ? 'Detecting address from map...' : 'e.g. Near Metro Station exit gate',
                 prefixIcon: Icons.place_outlined,
+                suffixIcon: _reverseGeocoding
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: Padding(
+                          padding: EdgeInsets.all(12.0),
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.secondary),
+                        ),
+                      )
+                    : null,
                 validator: (val) => val == null || val.isEmpty ? 'Location description is required' : null,
               ),
               const SizedBox(height: 16),
@@ -754,6 +787,7 @@ class _ReportPageState extends State<ReportPage> {
                                   setState(() {
                                     _selectedCoords = point;
                                   });
+                                  _reverseGeocode(point);
                                 },
                               ),
                             },
@@ -761,6 +795,7 @@ class _ReportPageState extends State<ReportPage> {
                               setState(() {
                                 _selectedCoords = point;
                               });
+                              _reverseGeocode(point);
                             },
                             myLocationEnabled: true,
                             myLocationButtonEnabled: false,

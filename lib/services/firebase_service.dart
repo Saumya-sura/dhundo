@@ -335,12 +335,54 @@ class FirebaseService extends ChangeNotifier {
     
     // Update chat room details
     final roomRef = _db.collection('chats').doc(chatRoomId);
-    batch.update(roomRef, {
-      'lastMessage': latitude != null ? '📍 Location: ${locationName ?? "Shared Place"}' : text,
-      'lastMessageTime': Timestamp.fromDate(DateTime.now()),
-    });
+    try {
+      final roomSnap = await roomRef.get();
+      final userIds = List<String>.from(roomSnap.data()?['userIds'] ?? []);
+      final otherUsers = userIds.where((id) => id != uid).toList();
+
+      final Map<String, dynamic> roomUpdates = {
+        'lastMessage': latitude != null ? '📍 Location: ${locationName ?? "Shared Place"}' : text,
+        'lastMessageTime': Timestamp.fromDate(DateTime.now()),
+        'lastSenderId': uid,
+        'unreadBy': otherUsers,
+      };
+      for (final otherId in otherUsers) {
+        roomUpdates['unreadCounts.$otherId'] = FieldValue.increment(1);
+      }
+      batch.update(roomRef, roomUpdates);
+    } catch (_) {
+      batch.update(roomRef, {
+        'lastMessage': latitude != null ? '📍 Location: ${locationName ?? "Shared Place"}' : text,
+        'lastMessageTime': Timestamp.fromDate(DateTime.now()),
+        'lastSenderId': uid,
+      });
+    }
 
     await batch.commit();
+  }
+
+  Future<void> markChatRoomAsRead(String chatRoomId) async {
+    final uid = currentUserId;
+    if (uid == null) return;
+    try {
+      await _db.collection('chats').doc(chatRoomId).update({
+        'unreadBy': FieldValue.arrayRemove([uid]),
+        'unreadCounts.$uid': 0,
+      });
+    } catch (_) {}
+  }
+
+  Stream<int> getTotalUnreadMessagesCount() {
+    final uid = currentUserId;
+    if (uid == null) return Stream.value(0);
+
+    return getUserChatRooms().map((rooms) {
+      int total = 0;
+      for (final room in rooms) {
+        total += room.getUnreadCount(uid);
+      }
+      return total;
+    });
   }
 
   // -----------------------------------------

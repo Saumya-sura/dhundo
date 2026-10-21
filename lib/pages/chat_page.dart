@@ -43,6 +43,7 @@ class _ChatPageState extends State<ChatPage> {
       context,
       listen: false,
     );
+    firebaseService.markChatRoomAsRead(widget.chatRoom.id);
 
     // Listen to call signaling
     _incomingCallSubscription = firebaseService.getUserChatRooms().listen((

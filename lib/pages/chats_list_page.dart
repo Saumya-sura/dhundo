@@ -228,6 +228,9 @@ class _ChatsListPageState extends State<ChatsListPage> {
                           final tagColor = room.itemIsLost ? AppTheme.lostColor : AppTheme.foundColor;
                           final isLiveSharing = room.liveLocations != null && room.liveLocations!.isNotEmpty;
 
+                          final unreadCount = room.getUnreadCount(firebaseService.currentUserId);
+                          final hasUnread = unreadCount > 0;
+
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 10.0),
                             child: Material(
@@ -235,6 +238,7 @@ class _ChatsListPageState extends State<ChatsListPage> {
                               borderRadius: BorderRadius.circular(16),
                               child: InkWell(
                                 onTap: () {
+                                  firebaseService.markChatRoomAsRead(room.id);
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
@@ -249,20 +253,30 @@ class _ChatsListPageState extends State<ChatsListPage> {
                                     color: AppTheme.cardBg,
                                     borderRadius: BorderRadius.circular(16),
                                     border: Border.all(
-                                      color: isLiveSharing
-                                          ? AppTheme.secondary.withValues(alpha: 0.4)
-                                          : AppTheme.border,
-                                      width: isLiveSharing ? 1.2 : 1,
+                                      color: hasUnread
+                                          ? AppTheme.lostColor.withValues(alpha: 0.5)
+                                          : isLiveSharing
+                                              ? AppTheme.secondary.withValues(alpha: 0.4)
+                                              : AppTheme.border,
+                                      width: hasUnread || isLiveSharing ? 1.2 : 1,
                                     ),
-                                    boxShadow: isLiveSharing
+                                    boxShadow: hasUnread
                                         ? [
                                             BoxShadow(
-                                              color: AppTheme.secondary.withValues(alpha: 0.12),
+                                              color: AppTheme.lostColor.withValues(alpha: 0.12),
                                               blurRadius: 10,
                                               offset: const Offset(0, 3),
                                             ),
                                           ]
-                                        : null,
+                                        : isLiveSharing
+                                            ? [
+                                                BoxShadow(
+                                                  color: AppTheme.secondary.withValues(alpha: 0.12),
+                                                  blurRadius: 10,
+                                                  offset: const Offset(0, 3),
+                                                ),
+                                              ]
+                                            : null,
                                   ),
                                   child: Row(
                                     crossAxisAlignment: CrossAxisAlignment.center,
@@ -284,7 +298,9 @@ class _ChatsListPageState extends State<ChatsListPage> {
                                                 end: Alignment.bottomRight,
                                               ),
                                               border: Border.all(
-                                                color: AppTheme.primary.withValues(alpha: 0.4),
+                                                color: hasUnread
+                                                    ? AppTheme.lostColor.withValues(alpha: 0.6)
+                                                    : AppTheme.primary.withValues(alpha: 0.4),
                                                 width: 1.2,
                                               ),
                                             ),
@@ -308,7 +324,7 @@ class _ChatsListPageState extends State<ChatsListPage> {
                                               width: 11,
                                               height: 11,
                                               decoration: BoxDecoration(
-                                                color: AppTheme.foundColor,
+                                                color: hasUnread ? AppTheme.lostColor : AppTheme.foundColor,
                                                 shape: BoxShape.circle,
                                                 border: Border.all(
                                                   color: AppTheme.cardBg,
@@ -331,8 +347,8 @@ class _ChatsListPageState extends State<ChatsListPage> {
                                                 Expanded(
                                                   child: Text(
                                                     otherPartyName,
-                                                    style: const TextStyle(
-                                                      fontWeight: FontWeight.bold,
+                                                    style: TextStyle(
+                                                      fontWeight: hasUnread ? FontWeight.w900 : FontWeight.bold,
                                                       fontSize: 15.5,
                                                       color: AppTheme.textPrimary,
                                                     ),
@@ -426,12 +442,16 @@ class _ChatsListPageState extends State<ChatsListPage> {
                                                     overflow: TextOverflow.ellipsis,
                                                     style: TextStyle(
                                                       fontSize: 12.5,
-                                                      color: isLiveSharing
-                                                          ? AppTheme.secondary
-                                                          : AppTheme.textSecondary,
-                                                      fontWeight: isLiveSharing
-                                                          ? FontWeight.w500
-                                                          : FontWeight.normal,
+                                                      color: hasUnread
+                                                          ? AppTheme.textPrimary
+                                                          : isLiveSharing
+                                                              ? AppTheme.secondary
+                                                              : AppTheme.textSecondary,
+                                                      fontWeight: hasUnread
+                                                          ? FontWeight.bold
+                                                          : isLiveSharing
+                                                              ? FontWeight.w500
+                                                              : FontWeight.normal,
                                                     ),
                                                   ),
                                                 ),
@@ -448,18 +468,42 @@ class _ChatsListPageState extends State<ChatsListPage> {
                                         children: [
                                           Text(
                                             dateStr,
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                               fontSize: 10.5,
-                                              color: AppTheme.textMuted,
-                                              fontWeight: FontWeight.w500,
+                                              color: hasUnread ? AppTheme.lostColor : AppTheme.textMuted,
+                                              fontWeight: hasUnread ? FontWeight.bold : FontWeight.w500,
                                             ),
                                           ),
-                                          const SizedBox(height: 10),
-                                          const Icon(
-                                            Icons.arrow_forward_ios_rounded,
-                                            size: 12,
-                                            color: AppTheme.textMuted,
-                                          ),
+                                          const SizedBox(height: 8),
+                                          if (hasUnread)
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: AppTheme.lostColor,
+                                                borderRadius: BorderRadius.circular(10),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: AppTheme.lostColor.withValues(alpha: 0.4),
+                                                    blurRadius: 4,
+                                                    offset: const Offset(0, 1),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: Text(
+                                                unreadCount > 99 ? '99+' : '$unreadCount',
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            )
+                                          else
+                                            const Icon(
+                                              Icons.arrow_forward_ios_rounded,
+                                              size: 12,
+                                              color: AppTheme.textMuted,
+                                            ),
                                         ],
                                       ),
                                     ],
