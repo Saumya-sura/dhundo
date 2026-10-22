@@ -1,6 +1,11 @@
 # Dhundo 🔍
 ### Lost & Found Map Assistant
 
+[![Deploy to GitHub Pages](https://github.com/Saumya-sura/dhundo/actions/workflows/deploy.yml/badge.svg)](https://github.com/Saumya-sura/dhundo/actions/workflows/deploy.yml)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-GitHub%20Pages-brightgreen?style=flat-square&logo=github)](https://saumya-sura.github.io/dhundo/)
+
+🌐 **Live Web App**: [https://saumya-sura.github.io/dhundo/](https://saumya-sura.github.io/dhundo/)
+
 Dhundo is a modern, state-of-the-art Flutter application built to help communities connect and return lost items. Featuring a premium **Obsidian Dark Theme**, real-time map exploration via Google Maps, automated proximity matching, interactive Google Street View 360° panoramas, and direct in-app messaging, Dhundo makes locating lost belongings seamless and collaborative.
 
 ---

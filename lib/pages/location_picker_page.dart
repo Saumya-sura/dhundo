@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
@@ -8,7 +10,20 @@ import '../widgets/glass_card.dart';
 import '../widgets/street_view_dialog.dart';
 
 class LocationPickerPage extends StatefulWidget {
-  const LocationPickerPage({super.key});
+  final LatLng? initialCoords;
+  final String? initialAddress;
+  final String title;
+  final String confirmButtonText;
+  final bool isLost;
+
+  const LocationPickerPage({
+    super.key,
+    this.initialCoords,
+    this.initialAddress,
+    this.title = 'Share a Location',
+    this.confirmButtonText = 'Confirm Share',
+    this.isLost = true,
+  });
 
   @override
   State<LocationPickerPage> createState() => _LocationPickerPageState();
@@ -29,7 +44,17 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
   @override
   void initState() {
     super.initState();
-    _determinePosition();
+    if (widget.initialCoords != null) {
+      _selectedCoords = widget.initialCoords!;
+      _loadingLocation = false;
+      if (widget.initialAddress != null && widget.initialAddress!.isNotEmpty) {
+        _labelController.text = widget.initialAddress!;
+      } else {
+        _reverseGeocode(widget.initialCoords!);
+      }
+    } else {
+      _determinePosition();
+    }
   }
 
   @override
@@ -158,7 +183,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
     return Scaffold(
       backgroundColor: AppTheme.darkBg,
       appBar: AppBar(
-        title: const Text('Share a Location'),
+        title: Text(widget.title),
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
@@ -170,9 +195,12 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
         children: [
           // Google Map
           GoogleMap(
+            gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+              Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
+            },
             style: GoogleMapsService.darkMapStyle,
             initialCameraPosition: CameraPosition(
-              target: _selectedCoords,
+              target: widget.initialCoords ?? _selectedCoords,
               zoom: 15.0,
             ),
             onMapCreated: (controller) {
@@ -182,7 +210,9 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
               Marker(
                 markerId: const MarkerId('picked_location'),
                 position: _selectedCoords,
-                icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+                icon: BitmapDescriptor.defaultMarkerWithHue(
+                  widget.isLost ? BitmapDescriptor.hueRed : BitmapDescriptor.hueGreen,
+                ),
                 draggable: true,
                 onDragEnd: (newCoords) {
                   setState(() {
@@ -409,7 +439,7 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
                             });
                           },
                           icon: const Icon(Icons.check, size: 16),
-                          label: const Text('Confirm Share', style: TextStyle(fontSize: 13)),
+                          label: Text(widget.confirmButtonText, style: const TextStyle(fontSize: 13)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.primary,
                             padding: const EdgeInsets.symmetric(vertical: 12),
@@ -420,6 +450,68 @@ class _LocationPickerPageState extends State<LocationPickerPage> {
                         ),
                       ),
                     ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Floating Zoom & Recenter Controls
+          Positioned(
+            right: 16,
+            bottom: 235,
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppTheme.cardBg.withValues(alpha: 0.95),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.border, width: 1.2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.35),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                      onTap: () => _mapController?.animateCamera(CameraUpdate.zoomIn()),
+                      child: const Padding(
+                        padding: EdgeInsets.all(10.0),
+                        child: Icon(Icons.add_rounded, size: 20, color: AppTheme.textPrimary),
+                      ),
+                    ),
+                  ),
+                  Container(width: 28, height: 1, color: AppTheme.border),
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.zero,
+                      onTap: () => _mapController?.animateCamera(CameraUpdate.zoomOut()),
+                      child: const Padding(
+                        padding: EdgeInsets.all(10.0),
+                        child: Icon(Icons.remove_rounded, size: 20, color: AppTheme.textPrimary),
+                      ),
+                    ),
+                  ),
+                  Container(width: 28, height: 1, color: AppTheme.border),
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+                      onTap: () => _mapController?.animateCamera(
+                        CameraUpdate.newLatLngZoom(_selectedCoords, 16.0),
+                      ),
+                      child: const Padding(
+                        padding: EdgeInsets.all(10.0),
+                        child: Icon(Icons.filter_center_focus_rounded, size: 20, color: AppTheme.secondary),
+                      ),
+                    ),
                   ),
                 ],
               ),

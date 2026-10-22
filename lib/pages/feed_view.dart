@@ -501,7 +501,7 @@ class _FeedViewState extends State<FeedView> {
                     // Dynamic Amber Alerts Slider Banner
                     if (amberAlerts.isNotEmpty) ...[
                       Container(
-                        height: 98,
+                        height: 120,
                         margin: const EdgeInsets.only(bottom: 8),
                         child: ListView.builder(
                           scrollDirection: Axis.horizontal,
@@ -509,10 +509,11 @@ class _FeedViewState extends State<FeedView> {
                           itemCount: amberAlerts.length,
                           itemBuilder: (context, index) {
                             final alert = amberAlerts[index];
+                            final cardWidth = (MediaQuery.of(context).size.width * 0.88).clamp(310.0, 440.0);
                             return Container(
-                              width: MediaQuery.of(context).size.width * 0.85,
+                              width: cardWidth,
                               margin: const EdgeInsets.only(right: 12),
-                              padding: const EdgeInsets.all(12),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: [
@@ -538,7 +539,7 @@ class _FeedViewState extends State<FeedView> {
                               child: Row(
                                 children: [
                                   const PulsingWarningIcon(),
-                                  const SizedBox(width: 12),
+                                  const SizedBox(width: 10),
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -546,13 +547,19 @@ class _FeedViewState extends State<FeedView> {
                                       children: [
                                         Row(
                                           children: const [
-                                            Text(
-                                              '🚨 NEIGHBORHOOD AMBER ALERT',
-                                              style: TextStyle(
-                                                color: AppTheme.lostColor,
-                                                fontWeight: FontWeight.w900,
-                                                fontSize: 10,
-                                                letterSpacing: 0.8,
+                                            Icon(Icons.warning_amber_rounded, size: 12, color: AppTheme.lostColor),
+                                            SizedBox(width: 3),
+                                            Expanded(
+                                              child: Text(
+                                                'AMBER ALERT: LOST PET',
+                                                style: TextStyle(
+                                                  color: AppTheme.lostColor,
+                                                  fontWeight: FontWeight.w900,
+                                                  fontSize: 9.5,
+                                                  letterSpacing: 0.6,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
                                               ),
                                             ),
                                           ],
@@ -563,7 +570,7 @@ class _FeedViewState extends State<FeedView> {
                                           style: const TextStyle(
                                             color: AppTheme.textPrimary,
                                             fontWeight: FontWeight.bold,
-                                            fontSize: 13.5,
+                                            fontSize: 13,
                                           ),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
@@ -572,7 +579,7 @@ class _FeedViewState extends State<FeedView> {
                                           alert.locationDescription,
                                           style: const TextStyle(
                                             color: AppTheme.textMuted,
-                                            fontSize: 11,
+                                            fontSize: 10.5,
                                           ),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
@@ -581,17 +588,25 @@ class _FeedViewState extends State<FeedView> {
                                     ),
                                   ),
                                   const SizedBox(width: 8),
-                                  ElevatedButton.icon(
+                                  ElevatedButton(
                                     onPressed: () => _navigateToChat(alert, firebaseService),
-                                    icon: const Icon(Icons.chat_bubble_outline_rounded, size: 14),
-                                    label: const Text('Help / Chat'),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: AppTheme.lostColor,
                                       foregroundColor: Colors.white,
                                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                      minimumSize: Size.zero,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(10),
                                       ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: const [
+                                        Icon(Icons.chat_bubble_outline_rounded, size: 13),
+                                        SizedBox(width: 4),
+                                        Text('Help', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                                      ],
                                     ),
                                   ),
                                 ],

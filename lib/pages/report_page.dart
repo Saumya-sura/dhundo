@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
@@ -11,6 +13,7 @@ import '../theme/app_theme.dart';
 import '../widgets/custom_textfield.dart';
 import '../widgets/custom_button.dart';
 import 'potential_matches_page.dart';
+import 'location_picker_page.dart';
 
 class ReportPage extends StatefulWidget {
   final bool isActive;
@@ -34,8 +37,38 @@ class _ReportPageState extends State<ReportPage> {
   bool _submitting = false;
   bool _isAmberAlert = false;
   bool _reverseGeocoding = false;
+  bool _isMapExpanded = false;
 
   GoogleMapController? _miniMapController;
+
+  Future<void> _openFullScreenPicker() async {
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => LocationPickerPage(
+          initialCoords: _selectedCoords,
+          initialAddress: _locDescController.text,
+          title: _isLost ? 'Pinpoint Lost Location' : 'Pinpoint Found Location',
+          confirmButtonText: 'Set Report Location',
+          isLost: _isLost,
+        ),
+      ),
+    );
+
+    if (result != null && mounted) {
+      final lat = (result['latitude'] as num).toDouble();
+      final lng = (result['longitude'] as num).toDouble();
+      final name = result['name'] as String?;
+      final newCoords = LatLng(lat, lng);
+      setState(() {
+        _selectedCoords = newCoords;
+        if (name != null && name.trim().isNotEmpty && name != 'Shared Spot' && name != 'Selected Location') {
+          _locDescController.text = name.trim();
+        }
+      });
+      _miniMapController?.animateCamera(CameraUpdate.newLatLngZoom(newCoords, 15.0));
+    }
+  }
 
   final List<String> _categories = [
     'Electronics',
@@ -485,7 +518,7 @@ class _ReportPageState extends State<ReportPage> {
                   crossAxisCount: 4,
                   crossAxisSpacing: 10,
                   mainAxisSpacing: 10,
-                  childAspectRatio: 0.95,
+                  childAspectRatio: 0.84,
                 ),
                 itemCount: _categories.length,
                 itemBuilder: (context, index) {
@@ -528,10 +561,11 @@ class _ReportPageState extends State<ReportPage> {
                         children: [
                           Column(
                             mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               Container(
-                                width: 36,
-                                height: 36,
+                                width: 34,
+                                height: 34,
                                 decoration: BoxDecoration(
                                   color: isSelected
                                       ? activeColor.withValues(alpha: 0.2)
@@ -540,27 +574,34 @@ class _ReportPageState extends State<ReportPage> {
                                 ),
                                 child: Icon(
                                   icon,
-                                  size: 19,
+                                  size: 18,
                                   color: isSelected ? activeColor : AppTheme.textSecondary,
                                 ),
                               ),
-                              const SizedBox(height: 6),
-                              Text(
-                                cat,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                  color: isSelected ? AppTheme.textPrimary : AppTheme.textSecondary,
+                              const SizedBox(height: 5),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 2),
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    cat,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 10.5,
+                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                      color: isSelected ? AppTheme.textPrimary : AppTheme.textSecondary,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ],
                           ),
                           if (isPet && _isLost)
                             Positioned(
-                              top: 5,
-                              right: 5,
+                              top: 6,
+                              right: 6,
                               child: Container(
                                 width: 8,
                                 height: 8,
@@ -631,7 +672,7 @@ class _ReportPageState extends State<ReportPage> {
               // Amber Alert Card
               if (_category == 'Pets' && _isLost) ...[
                 Container(
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
                     color: AppTheme.lostColor.withValues(alpha: 0.08),
                     border: Border.all(color: AppTheme.lostColor.withValues(alpha: 0.35), width: 1.2),
@@ -640,7 +681,7 @@ class _ReportPageState extends State<ReportPage> {
                   child: Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.all(7),
                         decoration: BoxDecoration(
                           color: AppTheme.lostColor.withValues(alpha: 0.15),
                           shape: BoxShape.circle,
@@ -648,41 +689,52 @@ class _ReportPageState extends State<ReportPage> {
                         child: const Icon(
                           Icons.notification_important_rounded,
                           color: AppTheme.lostColor,
-                          size: 22,
+                          size: 20,
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
                           children: const [
                             Text(
                               'Trigger Local Amber Alert',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: AppTheme.textPrimary,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 13.5,
+                                fontSize: 13,
                               ),
                             ),
                             SizedBox(height: 2),
                             Text(
                               'Instantly notifies nearby users in a 5 km radius',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 color: AppTheme.textSecondary,
                                 fontSize: 11,
+                                height: 1.25,
                               ),
                             ),
                           ],
                         ),
                       ),
-                      Switch(
-                        value: _isAmberAlert,
-                        activeThumbColor: AppTheme.lostColor,
-                        onChanged: (val) {
-                          setState(() {
-                            _isAmberAlert = val;
-                          });
-                        },
+                      const SizedBox(width: 6),
+                      Transform.scale(
+                        scale: 0.85,
+                        child: Switch(
+                          value: _isAmberAlert,
+                          activeThumbColor: AppTheme.lostColor,
+                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          onChanged: (val) {
+                            setState(() {
+                              _isAmberAlert = val;
+                            });
+                          },
+                        ),
                       ),
                     ],
                   ),
@@ -701,10 +753,14 @@ class _ReportPageState extends State<ReportPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
                         Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: const [
                             Icon(Icons.map_rounded, size: 16, color: AppTheme.secondary),
                             SizedBox(width: 6),
@@ -718,47 +774,121 @@ class _ReportPageState extends State<ReportPage> {
                             ),
                           ],
                         ),
-                        InkWell(
-                          onTap: () {
-                            StreetViewDialog.show(
-                              context,
-                              latitude: _selectedCoords.latitude,
-                              longitude: _selectedCoords.longitude,
-                              locationTitle: _locDescController.text.isNotEmpty
-                                  ? _locDescController.text
-                                  : 'Report Location',
-                            );
-                          },
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: AppTheme.secondary.withValues(alpha: 0.12),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Height expand/compact toggle
+                            InkWell(
+                              onTap: () {
+                                setState(() {
+                                  _isMapExpanded = !_isMapExpanded;
+                                });
+                              },
                               borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.3)),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: const [
-                                Icon(Icons.streetview_rounded, size: 14, color: AppTheme.secondary),
-                                SizedBox(width: 4),
-                                Text(
-                                  '360° Street View',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: AppTheme.secondary,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.06),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: AppTheme.border),
                                 ),
-                              ],
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      _isMapExpanded ? Icons.unfold_less_rounded : Icons.unfold_more_rounded,
+                                      size: 13,
+                                      color: AppTheme.textSecondary,
+                                    ),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      _isMapExpanded ? 'Compact' : 'Expand',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: AppTheme.textSecondary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
-                          ),
+                            const SizedBox(width: 6),
+                            // Fullscreen interactive picker button
+                            InkWell(
+                              onTap: _openFullScreenPicker,
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: activeColor.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: activeColor.withValues(alpha: 0.35)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.open_in_full_rounded, size: 13, color: activeColor),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Full Map',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: activeColor,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            // Street View button
+                            InkWell(
+                              onTap: () {
+                                StreetViewDialog.show(
+                                  context,
+                                  latitude: _selectedCoords.latitude,
+                                  longitude: _selectedCoords.longitude,
+                                  locationTitle: _locDescController.text.isNotEmpty
+                                      ? _locDescController.text
+                                      : 'Report Location',
+                                );
+                              },
+                              borderRadius: BorderRadius.circular(8),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.secondary.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.3)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: const [
+                                    Icon(Icons.streetview_rounded, size: 13, color: AppTheme.secondary),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      '360°',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: AppTheme.secondary,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                     const SizedBox(height: 10),
-                    Container(
-                      height: 200,
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeInOut,
+                      height: _isMapExpanded ? 340 : 210,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(color: AppTheme.border, width: 1),
@@ -767,6 +897,9 @@ class _ReportPageState extends State<ReportPage> {
                       child: Stack(
                         children: [
                           GoogleMap(
+                            gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+                              Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
+                            },
                             style: GoogleMapsService.darkMapStyle,
                             initialCameraPosition: CameraPosition(
                               target: _selectedCoords,
@@ -801,6 +934,7 @@ class _ReportPageState extends State<ReportPage> {
                             myLocationButtonEnabled: false,
                             zoomControlsEnabled: false,
                             mapToolbarEnabled: false,
+                            compassEnabled: true,
                           ),
                           if (_loadingLocation)
                             Container(
@@ -809,34 +943,180 @@ class _ReportPageState extends State<ReportPage> {
                                 child: CircularProgressIndicator(color: AppTheme.primary),
                               ),
                             ),
+
+                          // Top-left gesture instruction badge
                           Positioned(
-                            bottom: 10,
-                            right: 10,
-                            child: FloatingActionButton(
-                              heroTag: 'miniMapLocateMe',
-                              mini: true,
-                              backgroundColor: AppTheme.cardBg,
-                              foregroundColor: AppTheme.textPrimary,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                side: const BorderSide(color: AppTheme.border, width: 1),
+                            top: 8,
+                            left: 8,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppTheme.darkBg.withValues(alpha: 0.8),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: AppTheme.border.withValues(alpha: 0.6)),
                               ),
-                              onPressed: _fetchCurrentLocation,
-                              child: const Icon(Icons.my_location_rounded, size: 18),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: const [
+                                  Icon(Icons.touch_app_rounded, size: 12, color: AppTheme.secondary),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Pinch or use +/- to zoom',
+                                    style: TextStyle(
+                                      color: AppTheme.textPrimary,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          // Right-side floating vertical zoom & map controls cluster
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: AppTheme.cardBg.withValues(alpha: 0.95),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: AppTheme.border, width: 1.2),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.35),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // Zoom In (+)
+                                  Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+                                      onTap: () {
+                                        _miniMapController?.animateCamera(CameraUpdate.zoomIn());
+                                      },
+                                      child: const Tooltip(
+                                        message: 'Zoom In',
+                                        child: Padding(
+                                          padding: EdgeInsets.all(7.0),
+                                          child: Icon(Icons.add_rounded, size: 18, color: AppTheme.textPrimary),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  Container(width: 24, height: 1, color: AppTheme.border),
+                                  // Zoom Out (-)
+                                  Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.zero,
+                                      onTap: () {
+                                        _miniMapController?.animateCamera(CameraUpdate.zoomOut());
+                                      },
+                                      child: const Tooltip(
+                                        message: 'Zoom Out',
+                                        child: Padding(
+                                          padding: EdgeInsets.all(7.0),
+                                          child: Icon(Icons.remove_rounded, size: 18, color: AppTheme.textPrimary),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  Container(width: 24, height: 1, color: AppTheme.border),
+                                  // Focus on Pin
+                                  Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.zero,
+                                      onTap: () {
+                                        _miniMapController?.animateCamera(
+                                          CameraUpdate.newLatLngZoom(_selectedCoords, 16.0),
+                                        );
+                                      },
+                                      child: const Tooltip(
+                                        message: 'Focus on Pin',
+                                        child: Padding(
+                                          padding: EdgeInsets.all(7.0),
+                                          child: Icon(Icons.filter_center_focus_rounded, size: 17, color: AppTheme.secondary),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  Container(width: 24, height: 1, color: AppTheme.border),
+                                  // GPS Current Location
+                                  Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.zero,
+                                      onTap: _fetchCurrentLocation,
+                                      child: const Tooltip(
+                                        message: 'Current Location',
+                                        child: Padding(
+                                          padding: EdgeInsets.all(7.0),
+                                          child: Icon(Icons.my_location_rounded, size: 17, color: AppTheme.primary),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  Container(width: 24, height: 1, color: AppTheme.border),
+                                  // Fullscreen Map launcher
+                                  Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(10)),
+                                      onTap: _openFullScreenPicker,
+                                      child: Tooltip(
+                                        message: 'Open Fullscreen Map',
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(7.0),
+                                          child: Icon(Icons.open_in_full_rounded, size: 16, color: activeColor),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Icon(Icons.location_on_rounded, size: 12, color: AppTheme.textMuted),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${_selectedCoords.latitude.toStringAsFixed(4)}, ${_selectedCoords.longitude.toStringAsFixed(4)}',
-                          style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                        Row(
+                          children: [
+                            const Icon(Icons.location_on_rounded, size: 13, color: AppTheme.textMuted),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${_selectedCoords.latitude.toStringAsFixed(4)}, ${_selectedCoords.longitude.toStringAsFixed(4)}',
+                              style: const TextStyle(fontSize: 11, color: AppTheme.textMuted),
+                            ),
+                          ],
+                        ),
+                        InkWell(
+                          onTap: _openFullScreenPicker,
+                          child: Row(
+                            children: [
+                              Text(
+                                'Precision search & picker',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: activeColor,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(width: 2),
+                              Icon(Icons.chevron_right_rounded, size: 14, color: activeColor),
+                            ],
+                          ),
                         ),
                       ],
                     ),

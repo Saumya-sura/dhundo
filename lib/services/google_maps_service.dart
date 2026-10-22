@@ -202,12 +202,13 @@ class GoogleMapsService {
     double? lat,
     double? lng,
     String? panoId,
-    int width = 600,
+    int width = 640,
     int height = 400,
     int fov = 90,
     int heading = 0,
     int pitch = 0,
     int radius = 1000,
+    int scale = 2,
   }) {
     if (panoId != null && panoId.isNotEmpty) {
       return 'https://maps.googleapis.com/maps/api/streetview'
@@ -216,6 +217,7 @@ class GoogleMapsService {
           '&fov=$fov'
           '&heading=$heading'
           '&pitch=$pitch'
+          '&scale=$scale'
           '&key=$apiKey';
     }
     return 'https://maps.googleapis.com/maps/api/streetview'
@@ -225,6 +227,7 @@ class GoogleMapsService {
         '&fov=$fov'
         '&heading=$heading'
         '&pitch=$pitch'
+        '&scale=$scale'
         '&key=$apiKey';
   }
 

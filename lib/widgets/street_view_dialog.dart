@@ -24,6 +24,7 @@ class StreetViewDialog extends StatefulWidget {
     required double longitude,
     required String locationTitle,
   }) {
+    FocusScope.of(context).unfocus();
     return showDialog(
       context: context,
       barrierDismissible: true,
@@ -125,18 +126,26 @@ class _StreetViewDialogState extends State<StreetViewDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
     return Dialog(
       backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      child: GlassCard(
-        padding: const EdgeInsets.all(16),
-        borderRadius: 24,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Header
-            Row(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 20),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 500,
+          maxHeight: screenHeight * 0.88,
+        ),
+        child: GlassCard(
+          padding: const EdgeInsets.all(16),
+          borderRadius: 24,
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Header
+                Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(8),
@@ -207,13 +216,14 @@ class _StreetViewDialogState extends State<StreetViewDialog> {
                     )
                   : !_hasStreetView
                       ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                          child: SingleChildScrollView(
+                            physics: const BouncingScrollPhysics(),
+                            padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 8.0),
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.all(8),
+                                  padding: const EdgeInsets.all(7),
                                   decoration: BoxDecoration(
                                     color: AppTheme.cardBg,
                                     shape: BoxShape.circle,
@@ -222,10 +232,10 @@ class _StreetViewDialogState extends State<StreetViewDialog> {
                                   child: const Icon(
                                     Icons.explore_off_rounded,
                                     color: AppTheme.secondary,
-                                    size: 28,
+                                    size: 24,
                                   ),
                                 ),
-                                const SizedBox(height: 8),
+                                const SizedBox(height: 6),
                                 const Text(
                                   'Street View Not Mapped Here',
                                   textAlign: TextAlign.center,
@@ -244,25 +254,25 @@ class _StreetViewDialogState extends State<StreetViewDialog> {
                                     fontSize: 11,
                                   ),
                                 ),
-                                const SizedBox(height: 10),
+                                const SizedBox(height: 8),
                                 // Fallback satellite image preview
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(10),
                                   child: CachedNetworkImage(
                                     imageUrl:
                                         'https://maps.googleapis.com/maps/api/staticmap?center=${widget.latitude},${widget.longitude}&zoom=17&size=600x240&scale=2&maptype=hybrid&markers=color:0x818cf8%7C${widget.latitude},${widget.longitude}&key=${GoogleMapsService.apiKey}',
-                                    height: 105,
+                                    height: 95,
                                     width: double.infinity,
                                     fit: BoxFit.cover,
                                     placeholder: (context, url) => Container(
-                                      height: 105,
+                                      height: 95,
                                       color: AppTheme.darkBg,
                                       child: const Center(
                                         child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.secondary),
                                       ),
                                     ),
                                     errorWidget: (context, url, error) => Container(
-                                      height: 105,
+                                      height: 95,
                                       color: AppTheme.darkBg,
                                       child: const Center(
                                         child: Text(
@@ -442,14 +452,19 @@ class _StreetViewDialogState extends State<StreetViewDialog> {
                                               : AppTheme.secondary,
                                         ),
                                         const SizedBox(width: 4),
-                                        Text(
-                                          _metadata!.distanceMeters! < 30
-                                              ? 'Exact Spot (360°)'
-                                              : 'Nearest street (~${_metadata!.distanceMeters!.round()}m)',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w600,
+                                        ConstrainedBox(
+                                          constraints: const BoxConstraints(maxWidth: 160),
+                                          child: Text(
+                                            _metadata!.distanceMeters! < 30
+                                                ? 'Exact Spot (360°)'
+                                                : 'Nearest (~${_metadata!.distanceMeters!.round()}m)',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w600,
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -527,61 +542,74 @@ class _StreetViewDialogState extends State<StreetViewDialog> {
               const SizedBox(height: 12),
               // Panoramic 360 Look controls
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  _buildControlBtn(
-                    icon: Icons.rotate_left_rounded,
-                    label: 'Turn Left',
-                    onTap: () {
-                      setState(() {
-                        _heading = (_heading - 45 + 360) % 360;
-                        _activeHeading = _heading;
-                      });
-                    },
+                  Expanded(
+                    child: _buildControlBtn(
+                      icon: Icons.rotate_left_rounded,
+                      label: 'Left',
+                      onTap: () {
+                        setState(() {
+                          _heading = (_heading - 45 + 360) % 360;
+                          _activeHeading = _heading;
+                        });
+                      },
+                    ),
                   ),
-                  _buildControlBtn(
-                    icon: Icons.keyboard_arrow_up_rounded,
-                    label: 'Look Up',
-                    onTap: () {
-                      setState(() {
-                        _pitch = (_pitch + 15).clamp(-80, 80);
-                        _activePitch = _pitch;
-                      });
-                    },
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: _buildControlBtn(
+                      icon: Icons.keyboard_arrow_up_rounded,
+                      label: 'Up',
+                      onTap: () {
+                        setState(() {
+                          _pitch = (_pitch + 15).clamp(-80, 80);
+                          _activePitch = _pitch;
+                        });
+                      },
+                    ),
                   ),
-                  _buildControlBtn(
-                    icon: Icons.restart_alt_rounded,
-                    label: 'Reset',
-                    onTap: () {
-                      setState(() {
-                        _heading = 0;
-                        _pitch = 0;
-                        _fov = 90;
-                        _activeHeading = 0;
-                        _activePitch = 0;
-                        _activeFov = 90;
-                      });
-                    },
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: _buildControlBtn(
+                      icon: Icons.restart_alt_rounded,
+                      label: 'Reset',
+                      onTap: () {
+                        setState(() {
+                          _heading = 0;
+                          _pitch = 0;
+                          _fov = 90;
+                          _activeHeading = 0;
+                          _activePitch = 0;
+                          _activeFov = 90;
+                        });
+                      },
+                    ),
                   ),
-                  _buildControlBtn(
-                    icon: Icons.keyboard_arrow_down_rounded,
-                    label: 'Look Down',
-                    onTap: () {
-                      setState(() {
-                        _pitch = (_pitch - 15).clamp(-80, 80);
-                        _activePitch = _pitch;
-                      });
-                    },
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: _buildControlBtn(
+                      icon: Icons.keyboard_arrow_down_rounded,
+                      label: 'Down',
+                      onTap: () {
+                        setState(() {
+                          _pitch = (_pitch - 15).clamp(-80, 80);
+                          _activePitch = _pitch;
+                        });
+                      },
+                    ),
                   ),
-                  _buildControlBtn(
-                    icon: Icons.rotate_right_rounded,
-                    label: 'Turn Right',
-                    onTap: () {
-                      setState(() {
-                        _heading = (_heading + 45) % 360;
-                        _activeHeading = _heading;
-                      });
-                    },
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: _buildControlBtn(
+                      icon: Icons.rotate_right_rounded,
+                      label: 'Right',
+                      onTap: () {
+                        setState(() {
+                          _heading = (_heading + 45) % 360;
+                          _activeHeading = _heading;
+                        });
+                      },
+                    ),
                   ),
                 ],
               ),
@@ -673,7 +701,9 @@ class _StreetViewDialogState extends State<StreetViewDialog> {
           ],
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 
   Widget _buildControlBtn({
@@ -685,7 +715,7 @@ class _StreetViewDialogState extends State<StreetViewDialog> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 7),
         decoration: BoxDecoration(
           color: AppTheme.cardBg,
           borderRadius: BorderRadius.circular(10),
@@ -702,11 +732,14 @@ class _StreetViewDialogState extends State<StreetViewDialog> {
           ],
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, color: AppTheme.secondary, size: 20),
             const SizedBox(height: 3),
             Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w600,

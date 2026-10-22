@@ -154,7 +154,7 @@ class _ChatPageState extends State<ChatPage> {
 
   void _scheduleAutoReply(FirebaseService firebaseService) {
     _autoReplyTimer?.cancel();
-    _autoReplyTimer = Timer(const Duration(seconds: 60), () async {
+    _autoReplyTimer = Timer(const Duration(seconds: 30), () async {
       if (!mounted) return;
       final currentUserId = firebaseService.currentUserId ?? '';
       final isOwner = widget.chatRoom.ownerId == currentUserId;
@@ -706,38 +706,6 @@ class _ChatPageState extends State<ChatPage> {
                       ? 'Stop Sharing Location'
                       : 'Share Live Location',
                   onPressed: () => _toggleLocationSharing(firebaseService),
-                ),
-              ),
-              const SizedBox(width: 6),
-              // Call Button
-              Container(
-                margin: const EdgeInsets.symmetric(vertical: 8),
-                decoration: BoxDecoration(
-                  color: AppTheme.cardBg,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppTheme.border, width: 1),
-                ),
-                child: IconButton(
-                  padding: const EdgeInsets.all(8),
-                  constraints: const BoxConstraints(),
-                  icon: const Icon(
-                    Icons.phone_rounded,
-                    color: AppTheme.secondary,
-                    size: 19,
-                  ),
-                  tooltip: 'Voice Call',
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => CallOverlayPage(
-                          chatRoomId: widget.chatRoom.id,
-                          otherPartyName: otherPartyName,
-                          isCaller: true,
-                        ),
-                      ),
-                    );
-                  },
                 ),
               ),
               const SizedBox(width: 6),
