@@ -18,8 +18,8 @@ class ChatRoomModel {
   final String? lastSenderId;
   final List<String> unreadBy;
   final Map<String, dynamic>? unreadCounts; // { uid: int count }
-  final Map<String, dynamic>? liveLocations; // { uid: { 'latitude': double, 'longitude': double, 'updatedAt': Timestamp } }
-
+  final Map<String, dynamic>?
+  liveLocations; // { uid: { 'latitude': double, 'longitude': double, 'updatedAt': Timestamp } }
   ChatRoomModel({
     required this.id,
     required this.itemId,
@@ -101,8 +101,12 @@ class ChatRoomModel {
       callerName: map['callerName'],
       lastSenderId: map['lastSenderId'],
       unreadBy: List<String>.from(map['unreadBy'] ?? []),
-      unreadCounts: map['unreadCounts'] != null ? Map<String, dynamic>.from(map['unreadCounts']) : null,
-      liveLocations: map['liveLocations'] != null ? Map<String, dynamic>.from(map['liveLocations']) : null,
+      unreadCounts: map['unreadCounts'] != null
+          ? Map<String, dynamic>.from(map['unreadCounts'])
+          : null,
+      liveLocations: map['liveLocations'] != null
+          ? Map<String, dynamic>.from(map['liveLocations'])
+          : null,
     );
   }
 }
@@ -156,8 +160,12 @@ class MessageModel {
       senderName: map['senderName'] ?? '',
       text: map['text'] ?? '',
       timestamp: parsedTime,
-      latitude: map['latitude'] != null ? (map['latitude'] as num).toDouble() : null,
-      longitude: map['longitude'] != null ? (map['longitude'] as num).toDouble() : null,
+      latitude: map['latitude'] != null
+          ? (map['latitude'] as num).toDouble()
+          : null,
+      longitude: map['longitude'] != null
+          ? (map['longitude'] as num).toDouble()
+          : null,
       locationName: map['locationName'],
     );
   }

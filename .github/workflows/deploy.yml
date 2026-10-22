@@ -32,6 +32,16 @@ jobs:
       - name: Verify Flutter
         run: flutter --version
 
+      - name: Configure environment (.env)
+        run: |
+          cp .env.example .env
+          if [ -n "${{ secrets.GOOGLE_MAPS_API_KEY }}" ]; then
+            sed -i "s|your_google_maps_api_key_here|${{ secrets.GOOGLE_MAPS_API_KEY }}|g" .env
+          fi
+          if [ -n "${{ secrets.FIREBASE_WEB_API_KEY }}" ]; then
+            sed -i "s|your_firebase_web_api_key_here|${{ secrets.FIREBASE_WEB_API_KEY }}|g" .env
+          fi
+
       - name: Install dependencies
         run: flutter pub get
 

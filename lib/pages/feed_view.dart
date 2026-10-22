@@ -20,7 +20,6 @@ class _FeedViewState extends State<FeedView> {
   String _selectedCategory = 'All';
   String _selectedType = 'All'; // 'All', 'Lost', 'Found'
   bool _sortByLatest = true;
-
   final List<Map<String, dynamic>> _categoryData = [
     {'name': 'All', 'icon': Icons.grid_view_rounded},
     {'name': 'Electronics', 'icon': Icons.devices_rounded},
@@ -31,7 +30,6 @@ class _FeedViewState extends State<FeedView> {
     {'name': 'Clothing', 'icon': Icons.checkroom_rounded},
     {'name': 'Others', 'icon': Icons.category_rounded},
   ];
-
   @override
   void initState() {
     super.initState();
@@ -48,7 +46,12 @@ class _FeedViewState extends State<FeedView> {
     super.dispose();
   }
 
-  void _navigateToChat(ItemModel item, FirebaseService firebaseService, {bool isDemoFinder = false, String? initialMessage}) async {
+  void _navigateToChat(
+    ItemModel item,
+    FirebaseService firebaseService, {
+    bool isDemoFinder = false,
+    String? initialMessage,
+  }) async {
     final currentUserId = firebaseService.currentUserId ?? '';
     final isOwnPost = item.reporterId == currentUserId;
 
@@ -66,17 +69,27 @@ class _FeedViewState extends State<FeedView> {
             children: const [
               Icon(Icons.person_pin_circle_rounded, color: AppTheme.secondary),
               SizedBox(width: 8),
-              Text('Your Report', style: TextStyle(fontSize: 17, color: AppTheme.textPrimary)),
+              Text(
+                'Your Report',
+                style: TextStyle(fontSize: 17, color: AppTheme.textPrimary),
+              ),
             ],
           ),
           content: Text(
             'This report was created by you. Would you like to start a simulated test chat as a finder/claimant to test the messaging & handover flow?',
-            style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary, height: 1.4),
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppTheme.textSecondary,
+              height: 1.4,
+            ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogCtx, false),
-              child: const Text('Close', style: TextStyle(color: AppTheme.textMuted)),
+              child: const Text(
+                'Close',
+                style: TextStyle(color: AppTheme.textMuted),
+              ),
             ),
             ElevatedButton.icon(
               onPressed: () => Navigator.pop(dialogCtx, true),
@@ -84,7 +97,9 @@ class _FeedViewState extends State<FeedView> {
               label: const Text('Test Chat Flow'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primary,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
             ),
           ],
@@ -97,7 +112,9 @@ class _FeedViewState extends State<FeedView> {
     if (!mounted) return;
 
     // Ownership Verification Check (only if not simulating demo on own post)
-    if (!isOwnPost && item.verificationQuestion != null && item.verificationQuestion!.trim().isNotEmpty) {
+    if (!isOwnPost &&
+        item.verificationQuestion != null &&
+        item.verificationQuestion!.trim().isNotEmpty) {
       final answerController = TextEditingController();
       final hasAnswered = await showDialog<bool>(
         context: context,
@@ -112,7 +129,10 @@ class _FeedViewState extends State<FeedView> {
             children: const [
               Icon(Icons.vpn_key_rounded, color: Color(0xFFFBBF24)),
               SizedBox(width: 8),
-              Text('Verification Required', style: TextStyle(fontSize: 17, color: AppTheme.textPrimary)),
+              Text(
+                'Verification Required',
+                style: TextStyle(fontSize: 17, color: AppTheme.textPrimary),
+              ),
             ],
           ),
           content: Column(
@@ -130,7 +150,9 @@ class _FeedViewState extends State<FeedView> {
                 decoration: BoxDecoration(
                   color: AppTheme.darkBg,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
+                  border: Border.all(
+                    color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
+                  ),
                 ),
                 child: Text(
                   item.verificationQuestion!,
@@ -144,11 +166,20 @@ class _FeedViewState extends State<FeedView> {
               const SizedBox(height: 14),
               TextField(
                 controller: answerController,
-                style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13.5),
+                style: const TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: 13.5,
+                ),
                 decoration: InputDecoration(
                   hintText: 'Type your answer to verify...',
-                  hintStyle: const TextStyle(color: AppTheme.textMuted, fontSize: 13),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  hintStyle: const TextStyle(
+                    color: AppTheme.textMuted,
+                    fontSize: 13,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                   filled: true,
                   fillColor: AppTheme.darkBg,
                   border: OutlineInputBorder(
@@ -162,7 +193,10 @@ class _FeedViewState extends State<FeedView> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: AppTheme.textSecondary),
+              ),
             ),
             ElevatedButton(
               onPressed: () {
@@ -170,13 +204,17 @@ class _FeedViewState extends State<FeedView> {
                   Navigator.pop(dialogContext, true);
                 } else {
                   ScaffoldMessenger.of(dialogContext).showSnackBar(
-                    const SnackBar(content: Text('Please enter an answer to proceed.')),
+                    const SnackBar(
+                      content: Text('Please enter an answer to proceed.'),
+                    ),
                   );
                 }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primary,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
               child: const Text('Submit & Chat'),
             ),
@@ -187,21 +225,31 @@ class _FeedViewState extends State<FeedView> {
       if (hasAnswered != true) return;
 
       try {
-        final currentUserName = firebaseService.currentUser?.displayName ?? 'Samaritan';
+        final currentUserName =
+            firebaseService.currentUser?.displayName ?? 'Samaritan';
         final chatRoom = await firebaseService.getOrCreateChatRoom(
           itemId: item.id,
           itemTitle: item.title,
           itemIsLost: item.isLost,
-          ownerId: item.isLost ? item.reporterId : firebaseService.currentUserId!,
+          ownerId: item.isLost
+              ? item.reporterId
+              : firebaseService.currentUserId!,
           ownerName: item.isLost ? item.reporterName : currentUserName,
-          finderId: item.isLost ? firebaseService.currentUserId! : item.reporterId,
+          finderId: item.isLost
+              ? firebaseService.currentUserId!
+              : item.reporterId,
           finderName: item.isLost ? currentUserName : item.reporterName,
         );
 
         // Send the verification answer message automatically
         final answerText = answerController.text.trim();
-        final verificationMsg = '🔑 Verification Attempt:\nQuestion: ${item.verificationQuestion}\nClaimant\'s Answer: $answerText';
-        await firebaseService.sendMessage(chatRoom.id, verificationMsg, currentUserName);
+        final verificationMsg =
+            '🔑 Verification Attempt:\nQuestion: ${item.verificationQuestion}\nClaimant\'s Answer: $answerText';
+        await firebaseService.sendMessage(
+          chatRoom.id,
+          verificationMsg,
+          currentUserName,
+        );
 
         if (mounted) {
           Navigator.push(
@@ -228,28 +276,40 @@ class _FeedViewState extends State<FeedView> {
       final currentUserName = isOwnPost && isDemoFinder
           ? 'Helpful Neighbor'
           : (firebaseService.currentUser?.displayName ?? 'Anonymous');
-      final simulatedFinderId = isOwnPost && isDemoFinder ? 'demo_finder_${item.id.substring(0, 5)}' : (firebaseService.currentUserId ?? 'user');
+      final simulatedFinderId = isOwnPost && isDemoFinder
+          ? 'demo_finder_${item.id.substring(0, 5)}'
+          : (firebaseService.currentUserId ?? 'user');
 
       final chatRoom = await firebaseService.getOrCreateChatRoom(
         itemId: item.id,
         itemTitle: item.title,
         itemIsLost: item.isLost,
-        ownerId: item.isLost ? item.reporterId : (isOwnPost && isDemoFinder ? simulatedFinderId : firebaseService.currentUserId!),
+        ownerId: item.isLost
+            ? item.reporterId
+            : (isOwnPost && isDemoFinder
+                  ? simulatedFinderId
+                  : firebaseService.currentUserId!),
         ownerName: item.isLost ? item.reporterName : currentUserName,
-        finderId: item.isLost ? (isOwnPost && isDemoFinder ? simulatedFinderId : firebaseService.currentUserId!) : item.reporterId,
+        finderId: item.isLost
+            ? (isOwnPost && isDemoFinder
+                  ? simulatedFinderId
+                  : firebaseService.currentUserId!)
+            : item.reporterId,
         finderName: item.isLost ? currentUserName : item.reporterName,
       );
 
       if (initialMessage != null && initialMessage.isNotEmpty) {
-        await firebaseService.sendMessage(chatRoom.id, initialMessage, currentUserName);
+        await firebaseService.sendMessage(
+          chatRoom.id,
+          initialMessage,
+          currentUserName,
+        );
       }
 
       if (mounted) {
         Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (context) => ChatPage(chatRoom: chatRoom),
-          ),
+          MaterialPageRoute(builder: (context) => ChatPage(chatRoom: chatRoom)),
         );
       }
     } catch (e) {
@@ -319,10 +379,14 @@ class _FeedViewState extends State<FeedView> {
                     ),
                     // Quick Sort Button
                     InkWell(
-                      onTap: () => setState(() => _sortByLatest = !_sortByLatest),
+                      onTap: () =>
+                          setState(() => _sortByLatest = !_sortByLatest),
                       borderRadius: BorderRadius.circular(10),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: AppTheme.cardBg,
                           borderRadius: BorderRadius.circular(10),
@@ -332,7 +396,9 @@ class _FeedViewState extends State<FeedView> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              _sortByLatest ? Icons.schedule_rounded : Icons.history_rounded,
+                              _sortByLatest
+                                  ? Icons.schedule_rounded
+                                  : Icons.history_rounded,
                               size: 14,
                               color: AppTheme.secondary,
                             ),
@@ -363,14 +429,28 @@ class _FeedViewState extends State<FeedView> {
                   ),
                   child: TextField(
                     controller: _searchController,
-                    style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13.5),
+                    style: const TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 13.5,
+                    ),
                     decoration: InputDecoration(
                       hintText: 'Search lost phones, keys, wallets, pets...',
-                      hintStyle: const TextStyle(color: AppTheme.textMuted, fontSize: 12.5),
-                      prefixIcon: const Icon(Icons.search_rounded, color: AppTheme.textSecondary, size: 18),
+                      hintStyle: const TextStyle(
+                        color: AppTheme.textMuted,
+                        fontSize: 12.5,
+                      ),
+                      prefixIcon: const Icon(
+                        Icons.search_rounded,
+                        color: AppTheme.textSecondary,
+                        size: 18,
+                      ),
                       suffixIcon: _searchQuery.isNotEmpty
                           ? IconButton(
-                              icon: const Icon(Icons.clear_rounded, size: 16, color: AppTheme.textMuted),
+                              icon: const Icon(
+                                Icons.clear_rounded,
+                                size: 16,
+                                color: AppTheme.textMuted,
+                              ),
                               onPressed: () => _searchController.clear(),
                             )
                           : null,
@@ -388,9 +468,17 @@ class _FeedViewState extends State<FeedView> {
                   children: [
                     _buildTypePill('All', Icons.grid_view_rounded, null),
                     const SizedBox(width: 8),
-                    _buildTypePill('Lost', Icons.search_rounded, AppTheme.lostColor),
+                    _buildTypePill(
+                      'Lost',
+                      Icons.search_rounded,
+                      AppTheme.lostColor,
+                    ),
                     const SizedBox(width: 8),
-                    _buildTypePill('Found', Icons.check_circle_outline_rounded, AppTheme.foundColor),
+                    _buildTypePill(
+                      'Found',
+                      Icons.check_circle_outline_rounded,
+                      AppTheme.foundColor,
+                    ),
                   ],
                 ),
               ],
@@ -418,14 +506,19 @@ class _FeedViewState extends State<FeedView> {
                     borderRadius: BorderRadius.circular(20),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 180),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: isSelected
                             ? AppTheme.primary.withValues(alpha: 0.2)
                             : AppTheme.cardBg,
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: isSelected ? AppTheme.primary : AppTheme.border,
+                          color: isSelected
+                              ? AppTheme.primary
+                              : AppTheme.border,
                           width: isSelected ? 1.2 : 0.8,
                         ),
                       ),
@@ -435,15 +528,21 @@ class _FeedViewState extends State<FeedView> {
                           Icon(
                             icon,
                             size: 14,
-                            color: isSelected ? AppTheme.primaryAccent : AppTheme.textSecondary,
+                            color: isSelected
+                                ? AppTheme.primaryAccent
+                                : AppTheme.textSecondary,
                           ),
                           const SizedBox(width: 5),
                           Text(
                             name,
                             style: TextStyle(
                               fontSize: 11.5,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                              color: isSelected ? Colors.white : AppTheme.textSecondary,
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.w500,
+                              color: isSelected
+                                  ? Colors.white
+                                  : AppTheme.textSecondary,
                             ),
                           ),
                         ],
@@ -461,7 +560,9 @@ class _FeedViewState extends State<FeedView> {
               stream: firebaseService.getItems(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator(color: AppTheme.secondary));
+                  return const Center(
+                    child: CircularProgressIndicator(color: AppTheme.secondary),
+                  );
                 }
 
                 List<ItemModel> allItems = snapshot.data ?? [];
@@ -470,25 +571,39 @@ class _FeedViewState extends State<FeedView> {
                 allItems = allItems.where((i) => i.status == 'active').toList();
 
                 // Extract active Amber Alerts
-                final amberAlerts = allItems.where((i) => i.isAmberAlert).toList();
+                final amberAlerts = allItems
+                    .where((i) => i.isAmberAlert)
+                    .toList();
 
                 // Apply Filters to main feed list
                 List<ItemModel> filteredItems = List.from(allItems);
                 if (_selectedCategory != 'All') {
-                  filteredItems = filteredItems.where((i) => i.category == _selectedCategory).toList();
+                  filteredItems = filteredItems
+                      .where((i) => i.category == _selectedCategory)
+                      .toList();
                 }
 
                 if (_selectedType == 'Lost') {
                   filteredItems = filteredItems.where((i) => i.isLost).toList();
                 } else if (_selectedType == 'Found') {
-                  filteredItems = filteredItems.where((i) => !i.isLost).toList();
+                  filteredItems = filteredItems
+                      .where((i) => !i.isLost)
+                      .toList();
                 }
 
                 if (_searchQuery.isNotEmpty) {
-                  filteredItems = filteredItems.where((i) =>
-                      i.title.toLowerCase().contains(_searchQuery) ||
-                      i.description.toLowerCase().contains(_searchQuery) ||
-                      i.locationDescription.toLowerCase().contains(_searchQuery)).toList();
+                  filteredItems = filteredItems
+                      .where(
+                        (i) =>
+                            i.title.toLowerCase().contains(_searchQuery) ||
+                            i.description.toLowerCase().contains(
+                              _searchQuery,
+                            ) ||
+                            i.locationDescription.toLowerCase().contains(
+                              _searchQuery,
+                            ),
+                      )
+                      .toList();
                 }
 
                 // Sort Items
@@ -509,11 +624,16 @@ class _FeedViewState extends State<FeedView> {
                           itemCount: amberAlerts.length,
                           itemBuilder: (context, index) {
                             final alert = amberAlerts[index];
-                            final cardWidth = (MediaQuery.of(context).size.width * 0.88).clamp(310.0, 440.0);
+                            final cardWidth =
+                                (MediaQuery.of(context).size.width * 0.88)
+                                    .clamp(310.0, 440.0);
                             return Container(
                               width: cardWidth,
                               margin: const EdgeInsets.only(right: 12),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 10,
+                              ),
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: [
@@ -524,13 +644,17 @@ class _FeedViewState extends State<FeedView> {
                                   end: Alignment.bottomRight,
                                 ),
                                 border: Border.all(
-                                  color: AppTheme.lostColor.withValues(alpha: 0.5),
+                                  color: AppTheme.lostColor.withValues(
+                                    alpha: 0.5,
+                                  ),
                                   width: 1.2,
                                 ),
                                 borderRadius: BorderRadius.circular(16),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: AppTheme.lostColor.withValues(alpha: 0.15),
+                                    color: AppTheme.lostColor.withValues(
+                                      alpha: 0.15,
+                                    ),
                                     blurRadius: 10,
                                     offset: const Offset(0, 3),
                                   ),
@@ -542,12 +666,18 @@ class _FeedViewState extends State<FeedView> {
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         Row(
                                           children: const [
-                                            Icon(Icons.warning_amber_rounded, size: 12, color: AppTheme.lostColor),
+                                            Icon(
+                                              Icons.warning_amber_rounded,
+                                              size: 12,
+                                              color: AppTheme.lostColor,
+                                            ),
                                             SizedBox(width: 3),
                                             Expanded(
                                               child: Text(
@@ -589,13 +719,18 @@ class _FeedViewState extends State<FeedView> {
                                   ),
                                   const SizedBox(width: 8),
                                   ElevatedButton(
-                                    onPressed: () => _navigateToChat(alert, firebaseService),
+                                    onPressed: () =>
+                                        _navigateToChat(alert, firebaseService),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: AppTheme.lostColor,
                                       foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 8,
+                                      ),
                                       minimumSize: Size.zero,
-                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(10),
                                       ),
@@ -603,9 +738,18 @@ class _FeedViewState extends State<FeedView> {
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: const [
-                                        Icon(Icons.chat_bubble_outline_rounded, size: 13),
+                                        Icon(
+                                          Icons.chat_bubble_outline_rounded,
+                                          size: 13,
+                                        ),
                                         SizedBox(width: 4),
-                                        Text('Help', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                                        Text(
+                                          'Help',
+                                          style: TextStyle(
+                                            fontSize: 11.5,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   ),
@@ -628,7 +772,9 @@ class _FeedViewState extends State<FeedView> {
                                     Icon(
                                       Icons.search_off_rounded,
                                       size: 52,
-                                      color: AppTheme.textMuted.withValues(alpha: 0.5),
+                                      color: AppTheme.textMuted.withValues(
+                                        alpha: 0.5,
+                                      ),
                                     ),
                                     const SizedBox(height: 14),
                                     const Text(
@@ -659,10 +805,18 @@ class _FeedViewState extends State<FeedView> {
                               itemCount: filteredItems.length,
                               itemBuilder: (context, index) {
                                 final item = filteredItems[index];
-                                final isOwner = item.reporterId == firebaseService.currentUserId;
+                                final isOwner =
+                                    item.reporterId ==
+                                    firebaseService.currentUserId;
                                 final dateStr = _formatDate(item.dateTime);
-                                final color = item.isLost ? AppTheme.lostColor : AppTheme.foundColor;
-                                final hasVerification = item.verificationQuestion != null && item.verificationQuestion!.trim().isNotEmpty;
+                                final color = item.isLost
+                                    ? AppTheme.lostColor
+                                    : AppTheme.foundColor;
+                                final hasVerification =
+                                    item.verificationQuestion != null &&
+                                    item.verificationQuestion!
+                                        .trim()
+                                        .isNotEmpty;
 
                                 return Container(
                                   margin: const EdgeInsets.only(bottom: 14),
@@ -671,13 +825,17 @@ class _FeedViewState extends State<FeedView> {
                                     borderRadius: BorderRadius.circular(18),
                                     border: Border.all(
                                       color: item.isAmberAlert
-                                          ? AppTheme.lostColor.withValues(alpha: 0.5)
+                                          ? AppTheme.lostColor.withValues(
+                                              alpha: 0.5,
+                                            )
                                           : AppTheme.border,
                                       width: item.isAmberAlert ? 1.4 : 1,
                                     ),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.25),
+                                        color: Colors.black.withValues(
+                                          alpha: 0.25,
+                                        ),
                                         blurRadius: 10,
                                         offset: const Offset(0, 4),
                                       ),
@@ -685,49 +843,79 @@ class _FeedViewState extends State<FeedView> {
                                   ),
                                   clipBehavior: Clip.antiAlias,
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
                                     children: [
                                       if (item.imageUrl != null)
                                         Image.network(
                                           item.imageUrl!,
                                           height: 180,
                                           fit: BoxFit.cover,
-                                          errorBuilder: (context, error, stackTrace) => Container(
-                                            height: 100,
-                                            color: AppTheme.darkBg,
-                                            child: const Icon(Icons.broken_image, size: 40, color: AppTheme.textMuted),
-                                          ),
+                                          errorBuilder:
+                                              (context, error, stackTrace) =>
+                                                  Container(
+                                                    height: 100,
+                                                    color: AppTheme.darkBg,
+                                                    child: const Icon(
+                                                      Icons.broken_image,
+                                                      size: 40,
+                                                      color: AppTheme.textMuted,
+                                                    ),
+                                                  ),
                                         ),
                                       Padding(
                                         padding: const EdgeInsets.all(16),
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             // Tags Row
                                             Row(
                                               children: [
                                                 Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 3.5,
+                                                      ),
                                                   decoration: BoxDecoration(
-                                                    color: color.withValues(alpha: 0.15),
-                                                    borderRadius: BorderRadius.circular(6),
-                                                    border: Border.all(color: color.withValues(alpha: 0.6), width: 0.8),
+                                                    color: color.withValues(
+                                                      alpha: 0.15,
+                                                    ),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          6,
+                                                        ),
+                                                    border: Border.all(
+                                                      color: color.withValues(
+                                                        alpha: 0.6,
+                                                      ),
+                                                      width: 0.8,
+                                                    ),
                                                   ),
                                                   child: Row(
-                                                    mainAxisSize: MainAxisSize.min,
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
                                                     children: [
                                                       Icon(
-                                                        item.isLost ? Icons.search_rounded : Icons.check_circle_outline_rounded,
+                                                        item.isLost
+                                                            ? Icons
+                                                                  .search_rounded
+                                                            : Icons
+                                                                  .check_circle_outline_rounded,
                                                         size: 11,
                                                         color: color,
                                                       ),
                                                       const SizedBox(width: 4),
                                                       Text(
-                                                        item.isLost ? 'LOST' : 'FOUND',
+                                                        item.isLost
+                                                            ? 'LOST'
+                                                            : 'FOUND',
                                                         style: TextStyle(
                                                           color: color,
                                                           fontSize: 10.5,
-                                                          fontWeight: FontWeight.w900,
+                                                          fontWeight:
+                                                              FontWeight.w900,
                                                         ),
                                                       ),
                                                     ],
@@ -735,18 +923,35 @@ class _FeedViewState extends State<FeedView> {
                                                 ),
                                                 const SizedBox(width: 8),
                                                 Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 7,
+                                                        vertical: 3.5,
+                                                      ),
                                                   decoration: BoxDecoration(
-                                                    color: AppTheme.secondary.withValues(alpha: 0.12),
-                                                    borderRadius: BorderRadius.circular(6),
-                                                    border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.3), width: 0.8),
+                                                    color: AppTheme.secondary
+                                                        .withValues(
+                                                          alpha: 0.12,
+                                                        ),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          6,
+                                                        ),
+                                                    border: Border.all(
+                                                      color: AppTheme.secondary
+                                                          .withValues(
+                                                            alpha: 0.3,
+                                                          ),
+                                                      width: 0.8,
+                                                    ),
                                                   ),
                                                   child: Text(
                                                     item.category,
                                                     style: const TextStyle(
                                                       color: AppTheme.secondary,
                                                       fontSize: 11,
-                                                      fontWeight: FontWeight.bold,
+                                                      fontWeight:
+                                                          FontWeight.bold,
                                                     ),
                                                   ),
                                                 ),
@@ -791,13 +996,18 @@ class _FeedViewState extends State<FeedView> {
                                             // Location & Street View row
                                             Row(
                                               children: [
-                                                const Icon(Icons.place_rounded, size: 14, color: AppTheme.secondary),
+                                                const Icon(
+                                                  Icons.place_rounded,
+                                                  size: 14,
+                                                  color: AppTheme.secondary,
+                                                ),
                                                 const SizedBox(width: 4),
                                                 Expanded(
                                                   child: Text(
                                                     item.locationDescription,
                                                     maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
                                                     style: const TextStyle(
                                                       fontSize: 12,
                                                       color: AppTheme.textMuted,
@@ -810,27 +1020,54 @@ class _FeedViewState extends State<FeedView> {
                                                       context,
                                                       latitude: item.latitude,
                                                       longitude: item.longitude,
-                                                      locationTitle: item.locationDescription,
+                                                      locationTitle: item
+                                                          .locationDescription,
                                                     );
                                                   },
                                                   child: Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 7,
+                                                          vertical: 3,
+                                                        ),
                                                     decoration: BoxDecoration(
-                                                      color: AppTheme.secondary.withValues(alpha: 0.1),
-                                                      borderRadius: BorderRadius.circular(6),
-                                                      border: Border.all(color: AppTheme.secondary.withValues(alpha: 0.3), width: 0.8),
+                                                      color: AppTheme.secondary
+                                                          .withValues(
+                                                            alpha: 0.1,
+                                                          ),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            6,
+                                                          ),
+                                                      border: Border.all(
+                                                        color: AppTheme
+                                                            .secondary
+                                                            .withValues(
+                                                              alpha: 0.3,
+                                                            ),
+                                                        width: 0.8,
+                                                      ),
                                                     ),
                                                     child: Row(
-                                                      mainAxisSize: MainAxisSize.min,
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
                                                       children: const [
-                                                        Icon(Icons.streetview_rounded, size: 11, color: AppTheme.secondary),
+                                                        Icon(
+                                                          Icons
+                                                              .streetview_rounded,
+                                                          size: 11,
+                                                          color: AppTheme
+                                                              .secondary,
+                                                        ),
                                                         SizedBox(width: 3),
                                                         Text(
                                                           '360° View',
                                                           style: TextStyle(
                                                             fontSize: 10,
-                                                            color: AppTheme.secondary,
-                                                            fontWeight: FontWeight.bold,
+                                                            color: AppTheme
+                                                                .secondary,
+                                                            fontWeight:
+                                                                FontWeight.bold,
                                                           ),
                                                         ),
                                                       ],
@@ -844,23 +1081,43 @@ class _FeedViewState extends State<FeedView> {
                                             if (hasVerification) ...[
                                               const SizedBox(height: 8),
                                               Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 4,
+                                                    ),
                                                 decoration: BoxDecoration(
-                                                  color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
-                                                  borderRadius: BorderRadius.circular(8),
-                                                  border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.35), width: 0.8),
+                                                  color: const Color(
+                                                    0xFFF59E0B,
+                                                  ).withValues(alpha: 0.12),
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                  border: Border.all(
+                                                    color: const Color(
+                                                      0xFFF59E0B,
+                                                    ).withValues(alpha: 0.35),
+                                                    width: 0.8,
+                                                  ),
                                                 ),
                                                 child: Row(
-                                                  mainAxisSize: MainAxisSize.min,
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
                                                   children: const [
-                                                    Icon(Icons.vpn_key_rounded, size: 12, color: Color(0xFFFBBF24)),
+                                                    Icon(
+                                                      Icons.vpn_key_rounded,
+                                                      size: 12,
+                                                      color: Color(0xFFFBBF24),
+                                                    ),
                                                     SizedBox(width: 4),
                                                     Text(
                                                       'Ownership Verification Required',
                                                       style: TextStyle(
-                                                        color: Color(0xFFFBBF24),
+                                                        color: Color(
+                                                          0xFFFBBF24,
+                                                        ),
                                                         fontSize: 10.5,
-                                                        fontWeight: FontWeight.bold,
+                                                        fontWeight:
+                                                            FontWeight.bold,
                                                       ),
                                                     ),
                                                   ],
@@ -868,76 +1125,162 @@ class _FeedViewState extends State<FeedView> {
                                               ),
                                             ],
 
-                                            const Divider(color: AppTheme.border, height: 22),
+                                            const Divider(
+                                              color: AppTheme.border,
+                                              height: 22,
+                                            ),
 
                                             // Reporter Profile & Action Row
                                             Row(
-                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment
+                                                      .spaceBetween,
                                               children: [
                                                 // User metadata
-                                                FutureBuilder<Map<String, dynamic>?>(
-                                                  future: firebaseService.getUserProfile(item.reporterId),
+                                                FutureBuilder<
+                                                  Map<String, dynamic>?
+                                                >(
+                                                  future: firebaseService
+                                                      .getUserProfile(
+                                                        item.reporterId,
+                                                      ),
                                                   builder: (context, userSnapshot) {
-                                                    final userData = userSnapshot.data;
-                                                    final ratingSum = userData?['ratingSum'] as num?;
-                                                    final ratingCount = userData?['ratingCount'] as int? ?? 0;
-                                                    final averageRating = ratingCount > 0 ? (ratingSum!.toDouble() / ratingCount) : null;
-                                                    final badges = List<String>.from(userData?['badges'] ?? []);
+                                                    final userData =
+                                                        userSnapshot.data;
+                                                    final ratingSum =
+                                                        userData?['ratingSum']
+                                                            as num?;
+                                                    final ratingCount =
+                                                        userData?['ratingCount']
+                                                            as int? ??
+                                                        0;
+                                                    final averageRating =
+                                                        ratingCount > 0
+                                                        ? (ratingSum!
+                                                                  .toDouble() /
+                                                              ratingCount)
+                                                        : null;
+                                                    final badges =
+                                                        List<String>.from(
+                                                          userData?['badges'] ??
+                                                              [],
+                                                        );
 
                                                     return Expanded(
                                                       child: Column(
-                                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
                                                         children: [
                                                           Row(
                                                             children: [
                                                               Flexible(
                                                                 child: Text(
-                                                                  isOwner ? 'You (Reporter)' : 'By ${item.reporterName}',
+                                                                  isOwner
+                                                                      ? 'You (Reporter)'
+                                                                      : 'By ${item.reporterName}',
                                                                   style: TextStyle(
-                                                                    fontSize: 12.5,
-                                                                    color: isOwner ? AppTheme.secondary : AppTheme.textSecondary,
-                                                                    fontWeight: FontWeight.bold,
+                                                                    fontSize:
+                                                                        12.5,
+                                                                    color:
+                                                                        isOwner
+                                                                        ? AppTheme
+                                                                              .secondary
+                                                                        : AppTheme
+                                                                              .textSecondary,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .bold,
                                                                   ),
                                                                   maxLines: 1,
-                                                                  overflow: TextOverflow.ellipsis,
+                                                                  overflow:
+                                                                      TextOverflow
+                                                                          .ellipsis,
                                                                 ),
                                                               ),
-                                                              if (averageRating != null) ...[
-                                                                const SizedBox(width: 6),
-                                                                const Icon(Icons.star_rounded, color: Colors.amberAccent, size: 13),
-                                                                const SizedBox(width: 2),
+                                                              if (averageRating !=
+                                                                  null) ...[
+                                                                const SizedBox(
+                                                                  width: 6,
+                                                                ),
+                                                                const Icon(
+                                                                  Icons
+                                                                      .star_rounded,
+                                                                  color: Colors
+                                                                      .amberAccent,
+                                                                  size: 13,
+                                                                ),
+                                                                const SizedBox(
+                                                                  width: 2,
+                                                                ),
                                                                 Text(
-                                                                  averageRating.toStringAsFixed(1),
+                                                                  averageRating
+                                                                      .toStringAsFixed(
+                                                                        1,
+                                                                      ),
                                                                   style: const TextStyle(
-                                                                    fontSize: 11,
-                                                                    color: Colors.amberAccent,
-                                                                    fontWeight: FontWeight.bold,
+                                                                    fontSize:
+                                                                        11,
+                                                                    color: Colors
+                                                                        .amberAccent,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .bold,
                                                                   ),
                                                                 ),
                                                               ],
                                                             ],
                                                           ),
-                                                          if (badges.isNotEmpty) ...[
-                                                            const SizedBox(height: 3),
+                                                          if (badges
+                                                              .isNotEmpty) ...[
+                                                            const SizedBox(
+                                                              height: 3,
+                                                            ),
                                                             Wrap(
                                                               spacing: 4,
-                                                              children: badges.take(2).map((badge) {
+                                                              children: badges.take(2).map((
+                                                                badge,
+                                                              ) {
                                                                 return Container(
-                                                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                                                  padding:
+                                                                      const EdgeInsets.symmetric(
+                                                                        horizontal:
+                                                                            5,
+                                                                        vertical:
+                                                                            1.5,
+                                                                      ),
                                                                   decoration: BoxDecoration(
-                                                                    color: AppTheme.primary.withValues(alpha: 0.12),
+                                                                    color: AppTheme
+                                                                        .primary
+                                                                        .withValues(
+                                                                          alpha:
+                                                                              0.12,
+                                                                        ),
                                                                     border: Border.all(
-                                                                      color: AppTheme.primaryAccent.withValues(alpha: 0.4),
-                                                                      width: 0.6,
+                                                                      color: AppTheme
+                                                                          .primaryAccent
+                                                                          .withValues(
+                                                                            alpha:
+                                                                                0.4,
+                                                                          ),
+                                                                      width:
+                                                                          0.6,
                                                                     ),
-                                                                    borderRadius: BorderRadius.circular(4),
+                                                                    borderRadius:
+                                                                        BorderRadius.circular(
+                                                                          4,
+                                                                        ),
                                                                   ),
                                                                   child: Text(
                                                                     badge,
                                                                     style: const TextStyle(
-                                                                      fontSize: 8.5,
-                                                                      color: AppTheme.primaryAccent,
-                                                                      fontWeight: FontWeight.bold,
+                                                                      fontSize:
+                                                                          8.5,
+                                                                      color: AppTheme
+                                                                          .primaryAccent,
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .bold,
                                                                     ),
                                                                   ),
                                                                 );
@@ -957,52 +1300,134 @@ class _FeedViewState extends State<FeedView> {
                                                     if (isOwner) ...[
                                                       // Simulate test chat button for own post
                                                       OutlinedButton.icon(
-                                                        onPressed: () => _navigateToChat(item, firebaseService, isDemoFinder: true),
-                                                        icon: const Icon(Icons.forum_outlined, size: 14),
-                                                        label: const Text('Test Chat', style: TextStyle(fontSize: 11)),
+                                                        onPressed: () =>
+                                                            _navigateToChat(
+                                                              item,
+                                                              firebaseService,
+                                                              isDemoFinder:
+                                                                  true,
+                                                            ),
+                                                        icon: const Icon(
+                                                          Icons.forum_outlined,
+                                                          size: 14,
+                                                        ),
+                                                        label: const Text(
+                                                          'Test Chat',
+                                                          style: TextStyle(
+                                                            fontSize: 11,
+                                                          ),
+                                                        ),
                                                         style: OutlinedButton.styleFrom(
-                                                          foregroundColor: AppTheme.secondary,
-                                                          side: BorderSide(color: AppTheme.secondary.withValues(alpha: 0.4)),
-                                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                                          foregroundColor:
+                                                              AppTheme
+                                                                  .secondary,
+                                                          side: BorderSide(
+                                                            color: AppTheme
+                                                                .secondary
+                                                                .withValues(
+                                                                  alpha: 0.4,
+                                                                ),
+                                                          ),
+                                                          padding:
+                                                              const EdgeInsets.symmetric(
+                                                                horizontal: 10,
+                                                                vertical: 6,
+                                                              ),
+                                                          shape: RoundedRectangleBorder(
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  10,
+                                                                ),
+                                                          ),
                                                         ),
                                                       ),
                                                     ] else ...[
                                                       // Quick inquire button
                                                       IconButton(
-                                                        onPressed: () => _navigateToChat(
-                                                          item,
-                                                          firebaseService,
-                                                          initialMessage: 'Hi, I saw your report for "${item.title}". Is this still available?',
+                                                        onPressed: () =>
+                                                            _navigateToChat(
+                                                              item,
+                                                              firebaseService,
+                                                              initialMessage:
+                                                                  'Hi, I saw your report for "${item.title}". Is this still available?',
+                                                            ),
+                                                        icon: const Icon(
+                                                          Icons
+                                                              .quickreply_rounded,
+                                                          color: AppTheme
+                                                              .secondary,
+                                                          size: 18,
                                                         ),
-                                                        icon: const Icon(Icons.quickreply_rounded, color: AppTheme.secondary, size: 18),
-                                                        tooltip: 'Quick Inquire',
+                                                        tooltip:
+                                                            'Quick Inquire',
                                                         style: IconButton.styleFrom(
-                                                          backgroundColor: AppTheme.secondary.withValues(alpha: 0.1),
-                                                          padding: const EdgeInsets.all(8),
-                                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                                          backgroundColor:
+                                                              AppTheme.secondary
+                                                                  .withValues(
+                                                                    alpha: 0.1,
+                                                                  ),
+                                                          padding:
+                                                              const EdgeInsets.all(
+                                                                8,
+                                                              ),
+                                                          shape: RoundedRectangleBorder(
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  10,
+                                                                ),
+                                                          ),
                                                         ),
                                                       ),
                                                       const SizedBox(width: 6),
                                                       // Primary Chat CTA
                                                       ElevatedButton.icon(
-                                                        onPressed: () => _navigateToChat(item, firebaseService),
+                                                        onPressed: () =>
+                                                            _navigateToChat(
+                                                              item,
+                                                              firebaseService,
+                                                            ),
                                                         icon: Icon(
-                                                          hasVerification ? Icons.vpn_key_rounded : Icons.chat_rounded,
+                                                          hasVerification
+                                                              ? Icons
+                                                                    .vpn_key_rounded
+                                                              : Icons
+                                                                    .chat_rounded,
                                                           size: 13,
                                                         ),
                                                         label: Text(
                                                           hasVerification
                                                               ? 'Verify & Chat'
-                                                              : (item.isLost ? 'I Found It!' : 'Claim / Chat'),
-                                                          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                                                              : (item.isLost
+                                                                    ? 'I Found It!'
+                                                                    : 'Claim / Chat'),
+                                                          style:
+                                                              const TextStyle(
+                                                                fontSize: 11.5,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .bold,
+                                                              ),
                                                         ),
                                                         style: ElevatedButton.styleFrom(
-                                                          backgroundColor: hasVerification ? const Color(0xFFD97706) : AppTheme.primary,
-                                                          foregroundColor: Colors.white,
-                                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                                          backgroundColor:
+                                                              hasVerification
+                                                              ? const Color(
+                                                                  0xFFD97706,
+                                                                )
+                                                              : AppTheme
+                                                                    .primary,
+                                                          foregroundColor:
+                                                              Colors.white,
+                                                          padding:
+                                                              const EdgeInsets.symmetric(
+                                                                horizontal: 12,
+                                                                vertical: 8,
+                                                              ),
                                                           shape: RoundedRectangleBorder(
-                                                            borderRadius: BorderRadius.circular(10),
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  10,
+                                                                ),
                                                           ),
                                                         ),
                                                       ),
@@ -1085,7 +1510,8 @@ class _FeedViewState extends State<FeedView> {
       return '${difference.inMinutes}m ago';
     } else if (difference.inDays == 0 && now.day == dateTime.day) {
       return 'Today, ${DateFormat('hh:mm a').format(dateTime)}';
-    } else if (difference.inDays == 1 || (difference.inDays == 0 && now.day != dateTime.day)) {
+    } else if (difference.inDays == 1 ||
+        (difference.inDays == 0 && now.day != dateTime.day)) {
       return 'Yesterday, ${DateFormat('hh:mm a').format(dateTime)}';
     } else {
       return DateFormat('MMM dd, yyyy').format(dateTime);
@@ -1100,7 +1526,8 @@ class PulsingWarningIcon extends StatefulWidget {
   State<PulsingWarningIcon> createState() => _PulsingWarningIconState();
 }
 
-class _PulsingWarningIconState extends State<PulsingWarningIcon> with SingleTickerProviderStateMixin {
+class _PulsingWarningIconState extends State<PulsingWarningIcon>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
 
@@ -1111,9 +1538,10 @@ class _PulsingWarningIconState extends State<PulsingWarningIcon> with SingleTick
       vsync: this,
       duration: const Duration(milliseconds: 800),
     )..repeat(reverse: true);
-    _animation = Tween<double>(begin: 0.85, end: 1.15).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _animation = Tween<double>(
+      begin: 0.85,
+      end: 1.15,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -1132,7 +1560,11 @@ class _PulsingWarningIconState extends State<PulsingWarningIcon> with SingleTick
           shape: BoxShape.circle,
           color: AppTheme.lostColor.withValues(alpha: 0.2),
         ),
-        child: const Icon(Icons.warning_rounded, color: AppTheme.lostColor, size: 22),
+        child: const Icon(
+          Icons.warning_rounded,
+          color: AppTheme.lostColor,
+          size: 22,
+        ),
       ),
     );
   }

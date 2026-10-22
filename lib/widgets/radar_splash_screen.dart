@@ -4,12 +4,10 @@ import '../theme/app_theme.dart';
 
 class RadarSplashScreen extends StatefulWidget {
   final String statusText;
-
   const RadarSplashScreen({
     super.key,
     this.statusText = 'Connecting to spatial network...',
   });
-
   @override
   State<RadarSplashScreen> createState() => _RadarSplashScreenState();
 }
@@ -17,7 +15,6 @@ class RadarSplashScreen extends StatefulWidget {
 class _RadarSplashScreenState extends State<RadarSplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-
   @override
   void initState() {
     super.initState();
@@ -76,14 +73,24 @@ class _RadarSplashScreenState extends State<RadarSplashScreen>
                   // Middle ripple ring
                   _buildPulseRing(
                     scale: 1.0 + (((_controller.value + 0.33) % 1.0) * 1.2),
-                    opacity: (1.0 - ((_controller.value + 0.33) % 1.0)).clamp(0.0, 1.0) * 0.35,
+                    opacity:
+                        (1.0 - ((_controller.value + 0.33) % 1.0)).clamp(
+                          0.0,
+                          1.0,
+                        ) *
+                        0.35,
                     color: AppTheme.primaryAccent,
                     size: 140,
                   ),
                   // Inner ripple ring
                   _buildPulseRing(
                     scale: 1.0 + (((_controller.value + 0.66) % 1.0) * 0.9),
-                    opacity: (1.0 - ((_controller.value + 0.66) % 1.0)).clamp(0.0, 1.0) * 0.3,
+                    opacity:
+                        (1.0 - ((_controller.value + 0.66) % 1.0)).clamp(
+                          0.0,
+                          1.0,
+                        ) *
+                        0.3,
                     color: AppTheme.secondary,
                     size: 120,
                   ),
@@ -176,7 +183,10 @@ class _RadarSplashScreenState extends State<RadarSplashScreen>
 
                 // Pulsing Status Capsule
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: AppTheme.cardBg.withValues(alpha: 0.8),
                     borderRadius: BorderRadius.circular(20),
@@ -193,7 +203,9 @@ class _RadarSplashScreenState extends State<RadarSplashScreen>
                         height: 12,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation(AppTheme.secondary),
+                          valueColor: AlwaysStoppedAnimation(
+                            AppTheme.secondary,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 10),

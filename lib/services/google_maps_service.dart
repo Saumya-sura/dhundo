@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math' as math;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 
 class StreetViewMetadata {
@@ -25,7 +26,10 @@ class StreetViewMetadata {
 }
 
 class GoogleMapsService {
-  static const String apiKey = 'AIzaSyAUjRVcmsVbmK6y5MO3COPCrvuZwi6ziIg';
+  /// Google Maps Platform API key loaded securely from .env or compile-time dart-define
+  static String get apiKey =>
+      dotenv.env['GOOGLE_MAPS_API_KEY'] ??
+      const String.fromEnvironment('GOOGLE_MAPS_API_KEY', defaultValue: '');
 
   /// Obsidian dark theme JSON styling for Google Maps
   static const String darkMapStyle = '''

@@ -16,7 +16,6 @@ class ItemModel {
   final String status; // 'active' or 'resolved'
   final String? verificationQuestion;
   final bool isAmberAlert;
-
   ItemModel({
     required this.id,
     required this.title,

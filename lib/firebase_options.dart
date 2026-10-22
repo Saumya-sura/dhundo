@@ -3,6 +3,7 @@
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 /// Default [FirebaseOptions] for use with your Firebase apps.
 ///
@@ -40,8 +41,9 @@ class DefaultFirebaseOptions {
     }
   }
 
-  static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyBRU26ZLbLc-_NI1vletOlPt8MZhx7TPb0',
+  static FirebaseOptions get web => FirebaseOptions(
+    apiKey: dotenv.env['FIREBASE_WEB_API_KEY'] ??
+        const String.fromEnvironment('FIREBASE_WEB_API_KEY', defaultValue: ''),
     appId: '1:340234619582:web:0db003351e8f8a7f652cef',
     messagingSenderId: '340234619582',
     projectId: 'dhundo-flutter',
@@ -49,23 +51,18 @@ class DefaultFirebaseOptions {
     storageBucket: 'dhundo-flutter.firebasestorage.app',
   );
 
-  static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyDw-XMm6VyTbrdoeVgd5nxTRC2IkXhdFus',
+  static FirebaseOptions get android => FirebaseOptions(
+    apiKey: dotenv.env['FIREBASE_ANDROID_API_KEY'] ??
+        const String.fromEnvironment('FIREBASE_ANDROID_API_KEY', defaultValue: ''),
     appId: '1:340234619582:android:dd35ebe30f893889652cef',
     messagingSenderId: '340234619582',
     projectId: 'dhundo-flutter',
     storageBucket: 'dhundo-flutter.firebasestorage.app',
   );
-  static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyCpm67LdINKF3zL6bs60b3gyN5NPMTR4J4',
-    appId: '1:340234619582:ios:df4cf7dba16db34e652cef',
-    messagingSenderId: '340234619582',
-    projectId: 'dhundo-flutter',
-    storageBucket: 'dhundo-flutter.firebasestorage.app',
-    iosBundleId: 'com.example.dhundo',
-  );
-  static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyCpm67LdINKF3zL6bs60b3gyN5NPMTR4J4',
+
+  static FirebaseOptions get ios => FirebaseOptions(
+    apiKey: dotenv.env['FIREBASE_IOS_API_KEY'] ??
+        const String.fromEnvironment('FIREBASE_IOS_API_KEY', defaultValue: ''),
     appId: '1:340234619582:ios:df4cf7dba16db34e652cef',
     messagingSenderId: '340234619582',
     projectId: 'dhundo-flutter',
@@ -73,8 +70,20 @@ class DefaultFirebaseOptions {
     iosBundleId: 'com.example.dhundo',
   );
 
-  static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyBRU26ZLbLc-_NI1vletOlPt8MZhx7TPb0',
+  static FirebaseOptions get macos => FirebaseOptions(
+    apiKey: dotenv.env['FIREBASE_IOS_API_KEY'] ??
+        const String.fromEnvironment('FIREBASE_IOS_API_KEY', defaultValue: ''),
+    appId: '1:340234619582:ios:df4cf7dba16db34e652cef',
+    messagingSenderId: '340234619582',
+    projectId: 'dhundo-flutter',
+    storageBucket: 'dhundo-flutter.firebasestorage.app',
+    iosBundleId: 'com.example.dhundo',
+  );
+
+  static FirebaseOptions get windows => FirebaseOptions(
+    apiKey: dotenv.env['FIREBASE_WINDOWS_API_KEY'] ??
+        dotenv.env['FIREBASE_WEB_API_KEY'] ??
+        const String.fromEnvironment('FIREBASE_WINDOWS_API_KEY', defaultValue: ''),
     appId: '1:340234619582:web:c298ae5ab9ebf54b652cef',
     messagingSenderId: '340234619582',
     projectId: 'dhundo-flutter',
